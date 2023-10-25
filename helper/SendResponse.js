@@ -11,6 +11,12 @@ const SendResponse = (status, data, message, error) => {
   ResponseObj.message = message;
   ResponseObj.error = error;
 
+  if (data && Array.isArray(data)) {
+    ResponseObj.count = data.length;
+  } else {
+    ResponseObj.count = 0;
+  }
+
   return ResponseObj;
 };
 
