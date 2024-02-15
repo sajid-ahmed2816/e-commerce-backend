@@ -40,15 +40,15 @@ const FindUser = async (req, res) => {
   const { email, password } = req.body;
   const obj = { email, password };
   let result = await UserModel.findOne({ email });
-  console.log(result);
   if (result) {
     let confirm = await bcrypt.compare(obj.password, result.password);
     if (confirm) {
+      const { password, ...userWithoutPassword } = result.toObject();
       let token = jwt.sign({ email }, process.env.SECURE_KEY, {
         expiresIn: "24h",
       });
       res
-        .send(SendResponse(true, { user: result, token }, "Login Successfully"))
+        .send(SendResponse(true, { user: userWithoutPassword, token }, "Login Successfully"))
         .status(200);
     } else {
       res

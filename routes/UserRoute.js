@@ -8,7 +8,7 @@ const {
 
 route.post("/signup", CreateUser);
 
-route.get("/login", FindUser);
+route.post("/login", FindUser);
 
 route.get("/users", GetAllUser);
 
