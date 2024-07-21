@@ -13,5 +13,21 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+const UploadImage = (req, res) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: "Image upload failed", error: err.message });
+    }
+    console.log(req.file);
+    if (req.file) {
+      res.json({
+        message: "Image uploaded successfully",
+        url: req.file.path,
+      });
+    } else {
+      res.status(400).json({ message: "Image upload failed" });
+    }
+  });
+};
 
-module.exports = upload;
+module.exports = UploadImage;
