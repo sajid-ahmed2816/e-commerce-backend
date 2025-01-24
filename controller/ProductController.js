@@ -1,5 +1,6 @@
-const SendResponse = require("../helper/SendResponse");
+const { SendResponse } = require("../helper/SendResponse");
 const ProductModel = require("../models/ProductModel");
+const CategoryModel = require("../models/CategoryModel");
 
 const CreateProduct = async (req, res) => {
   let { name, category, description, image, price, } = req.body;
@@ -14,18 +15,27 @@ const CreateProduct = async (req, res) => {
   });
 
   if (errArr.length > 0) {
-    res.send(SendResponse(false, null, "Required all data")).status(400);
+    res.status(400).send(SendResponse(false, null, "Required all data"));
   };
 
   try {
+    const existingCategory = await CategoryModel.findById(category);
+    if (!existingCategory) {
+      return res
+        .status(400)
+        .send(SendResponse(false, null, "Category does not exist."));
+    }
     const result = new ProductModel(obj);
     await result.save();
     if (!result) {
-      res.send(SendResponse(false, null, "Internal error")).status(400);
-    } else {
-      res.send(SendResponse(true, result, "Created Successfully")).status(200);
+      res.status(400).send(SendResponse(false, null, "Internal error"));
     }
+    const populatedResult = await ProductModel.findById(result._id).populate("category");
+    return res.status(200).send(SendResponse(true, populatedResult, "Created Successfully"));
   } catch (error) {
     console.log(error);
+    return res.status(500).send(SendResponse(false, null, "Internal server error"));
   }
-}
+};
+
+module.exports = { CreateProduct };

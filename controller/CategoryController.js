@@ -25,16 +25,16 @@ const CreateCategory = async (req, res) => {
   });
 
   if (errArr.length > 0) {
-    res.send(SendResponse(false, null, `Required all data`)).status(400);
+    res.status(400).send(SendResponse(false, null, `Required all data`));
   }
 
   try {
     const result = new CategoryModel(obj);
     await result.save();
     if (!result) {
-      res.send(SendResponse(false, null, "Internal error")).status(400);
+      res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
-      res.send(SendResponse(true, result, "Created Successfully")).status(200);
+      res.send.status(200)(SendResponse(true, result, "Created Successfully"));
     }
   } catch (error) {
     console.log(error);
@@ -53,12 +53,8 @@ const EditCategory = async (req, res) => {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
   }
 
-  if (errArr.length > 0) {
-    res.send(SendResponse(false, null, "Required all data")).status(400);
-  }
-
   try {
-    const result = await CategoryModel.findOneAndUpdate(id, obj, { new: true });
+    const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
     if (!result) {
       res.status(404).send(SendResponse(false, null, "Category not found"));
     } else {
