@@ -34,7 +34,7 @@ const CreateCategory = async (req, res) => {
     if (!result) {
       res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
-      res.send.status(200)(SendResponse(true, result, "Created Successfully"));
+      res.status(200).send(SendResponse(true, result, "Created Successfully"));
     }
   } catch (error) {
     console.log(error);
