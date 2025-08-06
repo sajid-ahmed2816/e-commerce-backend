@@ -1,10 +1,13 @@
 const express = require("express");
-const router = express.Router();
 const Stripe = require("stripe");
 const { SendResponse } = require("../helper/SendResponse");
+const verifyToken = require("../middleware/Auth");
+
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-router.post("/create-payment-intent", async (req, res) => {
+const router = express.Router();
+
+router.post("/create-payment-intent", verifyToken(["admin", "user"]), async (req, res) => {
   try {
     const { amount } = req.body;
     const amountInCents = Math.round(parseFloat(amount) * 100);

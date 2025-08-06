@@ -1,72 +1,50 @@
+const jwt = require("jsonwebtoken");
 const { SendResponse } = require("../helper/SendResponse");
 const UserModel = require("../models/UserModel");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const admin = require("../firebaseAdmin");
 
-const CreateUser = async (req, res) => {
-  const { firstName, lastName, email, password, contact } = req.body;
-  const obj = { firstName, lastName, email, password, contact };
-  let reqArr = ["firstName", "lastName", "email", "password", "contact"];
-  let errArr = [];
+const JWT_SECRET = process.env.JWT_SECRET
 
-  reqArr.forEach((item) => {
-    if (!obj[item]) {
-      errArr.push(item);
-    }
-  });
-
-  if (errArr.length > 0) {
-    res.send(SendResponse(false, null, "Missing Fields", errArr)).status(400);
-    return;
-  } else {
-    let hashPassword = await bcrypt.hash(obj.password, 10);
-    obj.password = hashPassword;
-  }
-
+const Auth = async (req, res) => {
   try {
-    const result = new UserModel(obj);
-    await result.save();
-    if (!result) {
-      res.send(SendResponse(false, null, "Internal Error")).status(400);
-    } else {
-      res.send(SendResponse(true, result, "Sign In Successfully")).status(200);
-    }
-  } catch (error) {
-    res.send(error).status(404);
-  }
-};
+    const { token } = req.body; // Firebase ID token from frontend
 
-const FindUser = async (req, res) => {
-  const { email, password } = req.body;
-  const obj = { email, password };
-  let result = await UserModel.findOne({ email });
-  if (result) {
-    let confirm = await bcrypt.compare(obj.password, result.password);
-    if (confirm) {
-      const { password, ...userWithoutPassword } = result.toObject();
-      let token = jwt.sign({ email }, process.env.SECURE_KEY, {
-        expiresIn: "24h",
+    if (!token) {
+      return res.status(400).send(SendResponse(false, null, "Token is required"));
+    }
+
+    // Verify Firebase token
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const { name, email, picture } = decodedToken;
+
+    if (!email) {
+      return res.status(400).send(SendResponse(false, null, "Invalid token"));
+    }
+
+    // Find or create user
+    let user = await UserModel.findOne({ email });
+    if (!user) {
+      user = new UserModel({
+        name: name || "Unnamed User",
+        email,
+        image: picture || null,
+        role: "user"
       });
-      res
-        .send(SendResponse(true, { user: userWithoutPassword, token }, "Login Successfully"))
-        .status(200);
-    } else {
-      res
-        .send(SendResponse(true, null, "Invalid email or password"))
-        .status(400);
+      await user.save();
     }
-  } else {
-    res.send(SendResponse(false, null, "User doesn't exist"));
+
+    // Generate JWT (valid for 7 days)
+    const ourToken = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).send(SendResponse(true, { user, token: ourToken }, "User authenticated successfully"));
+  } catch (err) {
+    console.error(err);
+    res.status(401).send(SendResponse(false, null, "Unauthorized"));
   }
 };
 
-const GetAllUser = async (req, res) => {
-  let result = await UserModel.find();
-  if (result) {
-    res.send(SendResponse(true, result, "All users")).status(200);
-  } else {
-    res.send(SendResponse(false, null, "No users")).status(400);
-  }
-};
-
-module.exports = { CreateUser, FindUser, GetAllUser };
+module.exports = { Auth };

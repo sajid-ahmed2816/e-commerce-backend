@@ -1,20 +1,28 @@
 const jwt = require("jsonwebtoken");
+const { SendResponse } = require("../helper/SendResponse");
 
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
+const JWT_SECRET = process.env.JWT_SECRET
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized: No token provided" });
-  }
+const verifyToken = (roles = []) => {
+  return (req, res, next) => {
+    const authHeader = req.headers.authorization;
 
-  const token = authHeader.split(" ")[1];
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).send(SendResponse(false, null, "No token provided"));
+    }
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Replace with your secret
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(403).json({ message: "Invalid or expired token" });
+    const token = authHeader.split(" ")[1];
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (roles.length && !roles.includes(decoded.role)) {
+        return res.status(403).send(SendResponse(false, null, "Forbidden: Insufficient role"));
+      }
+      req.user = decoded;
+      next();
+    } catch (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
   }
 };
 

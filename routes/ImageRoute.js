@@ -1,7 +1,9 @@
 const express = require("express");
-const router = express.Router();
 const UploadImage = require("../controller/ImageController");
+const verifyToken = require("../middleware/Auth");
 
-router.post("/uploads", UploadImage);
+const router = express.Router();
+
+router.post("/uploads", verifyToken(["admin"]), UploadImage);
 
 module.exports = router;

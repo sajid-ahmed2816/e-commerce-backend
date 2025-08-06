@@ -1,29 +1,32 @@
 const mongoose = require("mongoose");
 
-const userSchema = mongoose.Schema({
+const blogSchema = mongoose.Schema({
   name: {
     type: String,
     required: true,
   },
-  email: {
+  type: {
     type: String,
     required: true,
   },
-  picture: {
+  image: {
     type: String,
     required: true,
   },
-  role: {
+  content: {
     type: String,
-    enum: ["user", "admin"],
-    default: "user"
+    required: true
+  },
+  date: {
+    type: Date,
+    required: false
   },
   timestamp: {
     type: Date,
     default: Date.now,
     immutable: true
-  }
+  },
 });
 
-const userModel = mongoose.model("User", userSchema);
-module.exports = userModel;
+const BlogModel = mongoose.model("Blog", blogSchema);
+module.exports = BlogModel;
