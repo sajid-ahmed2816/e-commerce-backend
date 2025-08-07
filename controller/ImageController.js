@@ -23,6 +23,7 @@ const UploadImage = (req, res) => {
       res.json({
         message: "Image uploaded successfully",
         url: req.file.path,
+        status: true
       });
     } else {
       res.status(400).json({ message: "Image upload failed" });

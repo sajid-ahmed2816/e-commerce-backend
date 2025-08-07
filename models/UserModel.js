@@ -9,6 +9,12 @@ const userSchema = mongoose.Schema({
     type: String,
     required: true,
   },
+  password: {
+    type: String,
+    required: function () {
+      return this.role === "admin";
+    }
+  },
   picture: {
     type: String,
     required: true,
