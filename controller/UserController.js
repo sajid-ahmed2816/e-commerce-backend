@@ -14,9 +14,9 @@ const Login = async (req, res) => {
       return res.status(400).send(SendResponse(false, null, "Email and password are required"));
     }
 
-    const user = await UserModel.findOne({ email, role: "admin" });
+    const user = await UserModel.findOne({ email });
     if (!user) {
-      return res.status(404).send(SendResponse(false, null, "Admin not found"));
+      return res.status(404).send(SendResponse(false, null, "User not found"));
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -40,6 +40,40 @@ const Login = async (req, res) => {
   }
 };
 
+const Signup = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+    const obj = { firstName, lastName, email, password };
+    let reqArr = ["firstName", "lastName", "email", "password"];
+    let errArr = [];
+
+    reqArr.forEach((item) => {
+      if (!obj[item]) {
+        errArr.push(item)
+      };
+    });
+
+    if (errArr.length > 0) {
+      res.status(400).send(SendResponse(false, null, "Required all data"));
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = new UserModel({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword
+    });
+    await result.save();
+    if (result) {
+      return res.status(200).send(SendResponse(true, result, "Signup Successfully"));
+    }
+  } catch (error) {
+    return res.status(500).send(SendResponse(false, null, "Internal error"));
+  }
+}
+
 const Auth = async (req, res) => {
   try {
     const { token } = req.body; // Firebase ID token from frontend
@@ -52,6 +86,14 @@ const Auth = async (req, res) => {
     const decodedToken = await admin.auth().verifyIdToken(token);
     const { name, email, picture } = decodedToken;
 
+    let firstName = null;
+    let lastName = null;
+    if (name) {
+      const parts = name.split(" ");
+      firstName = parts[0];
+      lastName = parts.slice(1).join(" ") || null;
+    }
+
     if (!email) {
       return res.status(400).send(SendResponse(false, null, "Invalid token"));
     }
@@ -60,14 +102,14 @@ const Auth = async (req, res) => {
     let user = await UserModel.findOne({ email });
     if (!user) {
       user = new UserModel({
-        name: name || "Unnamed User",
+        firstName,
+        lastName,
         email,
         image: picture || null,
         role: "user"
       });
       await user.save();
     }
-
     // Generate JWT (valid for 7 days)
     const ourToken = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
@@ -80,6 +122,17 @@ const Auth = async (req, res) => {
     console.error(err);
     res.status(401).send(SendResponse(false, null, "Unauthorized"));
   }
-}
+};
 
-module.exports = { Auth, Login };
+const Users = async (req, res) => {
+  try {
+    let result = await UserModel.find();
+    if (result) {
+      res.send(SendResponse(true, { users: result }, "All users")).status(200);
+    }
+  } catch (err) {
+    res.send(SendResponse(null, null, "Internal server error").status(500));
+  }
+};
+
+module.exports = { Auth, Login, Signup, Users };

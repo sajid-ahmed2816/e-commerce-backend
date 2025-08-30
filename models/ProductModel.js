@@ -5,6 +5,10 @@ const productSchema = mongoose.Schema({
     type: String,
     required: true,
   },
+  type: {
+    type: String,
+    required: true,
+  },
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Category",
@@ -22,6 +26,8 @@ const productSchema = mongoose.Schema({
     type: String,
     required: true,
   },
+}, {
+  timestamps: true
 });
 
 const ProductModel = mongoose.model("Product", productSchema);

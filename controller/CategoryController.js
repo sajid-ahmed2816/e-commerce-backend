@@ -1,14 +1,15 @@
 const { SendResponse } = require("../helper/SendResponse");
 const CategoryModel = require("../models/CategoryModel");
+const BannerModel = require("../models/BannerModel");
 
 const AllCategories = async (req, res) => {
   try {
     let result = await CategoryModel.find();
     if (result) {
-      res.send(SendResponse(true, result, "All categories")).status(200);
+      res.send(SendResponse(true, { categories: result }, "All categories")).status(200);
     }
   } catch (err) {
-    res.send(SendResponse(null, null, "Internal server error").status(500));
+    res.send(SendResponse(null, null, "Internal server error", true).status(500));
   }
 };
 
@@ -68,10 +69,11 @@ const EditCategory = async (req, res) => {
 const DeleteCategory = async (req, res) => {
   const { id } = req.params;
   try {
-    let result = await CategoryModel.findOneAndDelete(id);
+    let result = await CategoryModel.findByIdAndDelete(id);
     if (!result) {
       res.send(SendResponse(false, null, "Category not found")).status(404);
     } else {
+      await BannerModel.deleteMany({ category: id });
       res.send(SendResponse(true, null, "Deleted successfully")).status(200);
     }
   } catch (err) {

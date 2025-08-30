@@ -5,7 +5,7 @@ const Orders = async (req, res) => {
   try {
     let result = await OrderModel.find();
     if (result) {
-      res.send(SendResponse(true, result, "All Orders")).status(200);
+      res.send(SendResponse(true, { orders: result }, "All Orders")).status(200);
     }
   } catch (err) {
     res.send(SendResponse(null, null, "Internal server error").status(500));

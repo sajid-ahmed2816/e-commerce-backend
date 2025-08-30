@@ -7,7 +7,7 @@ const AllProducts = async (req, res) => {
     if (!result) {
       res.status(404).send(SendResponse(true, result, "No products available"));
     } else {
-      res.status(200).send(SendResponse(true, result, "All products"));
+      res.status(200).send(SendResponse(true, { products: result }, "All products"));
     }
   } catch (error) {
     res.status(500).send(SendResponse(null, null, "Internal server error"))
@@ -15,9 +15,9 @@ const AllProducts = async (req, res) => {
 };
 
 const CreateProduct = async (req, res) => {
-  let { name, category, description, image, price, } = req.body;
-  let obj = { name, category, description, image, price };
-  let reqArr = ["name", "category", "description", "image", "price"];
+  let { name, type, category, description, image, price, } = req.body;
+  let obj = { name, type, category, description, image, price };
+  let reqArr = ["name", "type", "category", "description", "image", "price"];
   let errArr = [];
 
   reqArr.forEach((item) => {

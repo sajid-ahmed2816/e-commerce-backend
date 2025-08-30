@@ -3,9 +3,9 @@ const BannerModel = require("../models/BannerModel");
 
 const Banners = async (req, res) => {
   try {
-    let result = await BannerModel.find();
+    let result = await BannerModel.find().populate("category");
     if (result) {
-      res.send(SendResponse(true, result, "All Blogs")).status(200);
+      res.send(SendResponse(true, { banners: result }, "All Banners")).status(200);
     }
   } catch (err) {
     res.send(SendResponse(null, null, "Internal server error").status(500));

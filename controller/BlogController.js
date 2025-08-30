@@ -5,7 +5,7 @@ const Blogs = async (req, res) => {
   try {
     let result = await BlogModel.find();
     if (result) {
-      res.send(SendResponse(true, result, "All Blogs")).status(200);
+      res.send(SendResponse(true, { blogs: result }, "All Blogs")).status(200);
     }
   } catch (err) {
     res.send(SendResponse(null, null, "Internal server error").status(500));

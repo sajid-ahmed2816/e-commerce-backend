@@ -5,7 +5,7 @@ const Abouts = async (req, res) => {
   try {
     let result = await AboutModel.find();
     if (result) {
-      res.send(SendResponse(true, result, "All Blogs")).status(200);
+      res.send(SendResponse(true, { about: result }, "All Blogs")).status(200);
     }
   } catch (err) {
     res.send(SendResponse(null, null, "Internal server error").status(500));

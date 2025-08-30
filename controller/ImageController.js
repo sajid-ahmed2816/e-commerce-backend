@@ -18,7 +18,6 @@ const UploadImage = (req, res) => {
     if (err) {
       return res.status(400).json({ message: "Image upload failed", error: err.message });
     }
-    console.log(req.file);
     if (req.file) {
       res.json({
         message: "Image uploaded successfully",
