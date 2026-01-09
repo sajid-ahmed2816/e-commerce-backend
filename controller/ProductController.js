@@ -1,23 +1,54 @@
 const { SendResponse } = require("../helper/SendResponse");
 const ProductModel = require("../models/ProductModel");
+const CategoryModel = require("../models/CategoryModel");
+const Paginate = require("../helper/Paginate");
 
 const AllProducts = async (req, res) => {
   try {
-    const result = await ProductModel.find().populate("category");
-    if (!result) {
-      res.status(404).send(SendResponse(true, result, "No products available"));
-    } else {
-      res.status(200).send(SendResponse(true, { products: result }, "All products"));
-    }
+    const { search, page = 1, limit = 10, category } = req.query;
+    let query = {};
+    if (search) {
+      let categoryIds = [];
+      if (!category) {
+        const categories = await CategoryModel.find({
+          name: { $regex: search, $options: "i" }
+        }).select("_id");
+        categoryIds = categories.map(c => c._id);
+      };
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        ...(categoryIds.length > 0 ? [{ category: { $in: categoryIds } }] : [])
+      ];
+    };
+    if (category) {
+      query.category = category;
+    };
+    const result = await Paginate({
+      model: ProductModel,
+      query,
+      page,
+      limit,
+      populate: "category",
+    });
+    if (result) {
+      res.status(200).send(SendResponse(
+        true,
+        {
+          products: result.data,
+          pagination: result.pagination,
+        },
+        "All products"
+      ));
+    };
   } catch (error) {
     res.status(500).send(SendResponse(null, null, "Internal server error"))
   }
 };
 
 const CreateProduct = async (req, res) => {
-  let { name, type, category, description, image, price, } = req.body;
-  let obj = { name, type, category, description, image, price };
-  let reqArr = ["name", "type", "category", "description", "image", "price"];
+  let { name, category, size, description, image, price, } = req.body;
+  let obj = { name, category, size, description, image, price };
+  let reqArr = ["name", "category", "size", "description", "image", "price"];
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -46,10 +77,11 @@ const CreateProduct = async (req, res) => {
 
 const UpdateProduct = async (req, res) => {
   let { id } = req.params;
-  let { name, category, description, image, price, } = req.body;
+  let { name, category, size, description, image, price, } = req.body;
   let obj = {};
   if (name) obj.name = name;
   if (category) obj.category = category;
+  if (size) obj.size = size;
   if (description) obj.description = description;
   if (image) obj.image = image;
   if (price) obj.price = price;

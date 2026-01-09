@@ -1,20 +1,19 @@
 const { SendResponse } = require("../helper/SendResponse");
-const CategoryModel = require("../models/CategoryModel");
-const BannerModel = require("../models/BannerModel");
+const SizeModel = require("../models/SizeModel");
 const Paginate = require("../helper/Paginate");
 
-const AllCategories = async (req, res) => {
+const AllSizes = async (req, res) => {
   try {
     const { search, page = 1, limit = 10 } = req.query;
     let query = {};
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { type: { $regex: search, $options: "i" } },
+        { size: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
       ]
     };
     const result = await Paginate({
-      model: CategoryModel,
+      model: SizeModel,
       query,
       page,
       limit,
@@ -23,10 +22,10 @@ const AllCategories = async (req, res) => {
       res.status(200).send(SendResponse(
         true,
         {
-          categories: result.data,
+          sizes: result.data,
           pagination: result.pagination,
         },
-        "All categories"
+        "All sizes"
       ));
     };
   } catch (err) {
@@ -34,10 +33,10 @@ const AllCategories = async (req, res) => {
   };
 };
 
-const CreateCategory = async (req, res) => {
-  let { name, type, image } = req.body;
-  let obj = { name, type, image };
-  let reqArr = ["name", "type", "image"];
+const CreateSize = async (req, res) => {
+  let { size, description } = req.body;
+  let obj = { size, description };
+  let reqArr = ["size", "description"];
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -51,7 +50,7 @@ const CreateCategory = async (req, res) => {
   }
 
   try {
-    const result = new CategoryModel(obj);
+    const result = new SizeModel(obj);
     await result.save();
     if (!result) {
       res.status(400).send(SendResponse(false, null, "Internal error"));
@@ -63,20 +62,19 @@ const CreateCategory = async (req, res) => {
   }
 };
 
-const EditCategory = async (req, res) => {
+const EditSize = async (req, res) => {
   let { id } = req.params;
-  let { name, type, image } = req.body;
+  let { size, description } = req.body;
   let obj = {};
-  if (name) obj.name = name;
-  if (type) obj.type = type;
-  if (image) obj.image = image;
+  if (size) obj.size = size;
+  if (description) obj.description = description;
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
   }
 
   try {
-    const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
+    const result = await SizeModel.findByIdAndUpdate(id, obj, { new: true });
     if (!result) {
       res.status(404).send(SendResponse(false, null, "Category not found"));
     } else {
@@ -87,19 +85,18 @@ const EditCategory = async (req, res) => {
   }
 };
 
-const DeleteCategory = async (req, res) => {
+const DeleteSize = async (req, res) => {
   const { id } = req.params;
   try {
-    let result = await CategoryModel.findByIdAndDelete(id);
+    let result = await SizeModel.findByIdAndDelete(id);
     if (!result) {
-      res.send(SendResponse(false, null, "Category not found")).status(404);
+      res.send(SendResponse(false, null, "Size not found")).status(404);
     } else {
-      await BannerModel.deleteMany({ category: id });
-      res.send(SendResponse(true, null, "Deleted successfully")).status(200);
+      res.send(SendResponse(true, null, "Size deleted successfully")).status(200);
     }
   } catch (err) {
     res.send(SendResponse(false, null, "Internal server error")).status(500);
   }
 }
 
-module.exports = { AllCategories, CreateCategory, EditCategory, DeleteCategory };
+module.exports = { AllSizes, CreateSize, EditSize, DeleteSize };

@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { SendResponse } = require("../helper/SendResponse");
 const UserModel = require("../models/UserModel");
 const admin = require("../firebaseAdmin");
+const Paginate = require("../helper/Paginate");
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -126,13 +127,35 @@ const Auth = async (req, res) => {
 
 const Users = async (req, res) => {
   try {
-    let result = await UserModel.find();
+    const { search, page = 1, limit = 10 } = req.query;
+    let query = {};
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: "i" } },
+        { lastName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ]
+    };
+    const result = await Paginate({
+      model: UserModel,
+      query,
+      page,
+      limit,
+    });
     if (result) {
-      res.send(SendResponse(true, { users: result }, "All users")).status(200);
-    }
+      res.status(200).send(SendResponse(
+        true,
+        {
+          users: result.data,
+          pagination: result.pagination
+        }
+        ,
+        "All users"
+      ));
+    };
   } catch (err) {
-    res.send(SendResponse(null, null, "Internal server error").status(500));
-  }
+    res.status(500).send(SendResponse(false, null, "Internal server error", err.message));
+  };
 };
 
 module.exports = { Auth, Login, Signup, Users };
