@@ -13,8 +13,15 @@ const categorySchema = mongoose.Schema({
     type: String,
     required: true,
   },
-}, {
-  timestamps: true
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    immutable: true
+  }
 });
 
 const CategoryModel = mongoose.model("Category", categorySchema);

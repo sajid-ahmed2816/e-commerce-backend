@@ -28,7 +28,7 @@ const AllProducts = async (req, res) => {
       query,
       page,
       limit,
-      populate: "category",
+      populate: ["category", "size"],
     });
     if (result) {
       res.status(200).send(SendResponse(
@@ -42,7 +42,7 @@ const AllProducts = async (req, res) => {
     };
   } catch (error) {
     res.status(500).send(SendResponse(null, null, "Internal server error"))
-  }
+  };
 };
 
 const CreateProduct = async (req, res) => {
@@ -58,7 +58,7 @@ const CreateProduct = async (req, res) => {
   });
 
   if (errArr.length > 0) {
-    res.status(400).send(SendResponse(false, null, "Required all data"));
+    return res.status(400).send(SendResponse(false, null, "Required all data"));
   };
 
   try {
@@ -68,11 +68,11 @@ const CreateProduct = async (req, res) => {
       return res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
       return res.status(200).send(SendResponse(true, result, "Created Successfully"));
-    }
+    };
   } catch (error) {
     console.log(error);
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
-  }
+  };
 };
 
 const UpdateProduct = async (req, res) => {
@@ -88,7 +88,7 @@ const UpdateProduct = async (req, res) => {
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
-  }
+  };
 
   try {
     const result = await ProductModel.findByIdAndUpdate(id, obj, { new: true });
@@ -96,11 +96,35 @@ const UpdateProduct = async (req, res) => {
       return res.status(404).send(SendResponse(false, null, "Product not found"));
     } else {
       return res.status(200).send(SendResponse(true, result, "Updated Successfully"));
-    }
+    };
   } catch (error) {
     console.log(error);
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
-  }
+  };
+};
+
+const UpdateStatus = async (req, res) => {
+  let { id } = req.params;
+  let { isActive } = req.body;
+  let obj = {
+    isActive: isActive
+  };
+
+  if (Object.keys(obj).length === 0) {
+    return res.status(400).send(SendResponse(false, null, "Required data to update"));
+  };
+
+  try {
+    const result = await ProductModel.findByIdAndUpdate(id, obj, { new: true });
+    if (!result) {
+      return res.status(404).send(SendResponse(false, null, "Product not found"));
+    } else {
+      return res.status(200).send(SendResponse(true, result, "Status Updated Successfully"));
+    };
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send(SendResponse(false, null, "Internal server error"));
+  };
 };
 
 const DeleteProduct = async (req, res) => {
@@ -111,10 +135,10 @@ const DeleteProduct = async (req, res) => {
       return res.status(404).send(SendResponse(false, null, "Product not available"));
     } else {
       return res.status(200).send(SendResponse(true, null, "Product deleted successfully"));
-    }
+    };
   } catch (error) {
     return res.status(500).send(SendResponse(false, error, "Internal Sever Error"));
-  }
-}
+  };
+};
 
-module.exports = { AllProducts, CreateProduct, UpdateProduct, DeleteProduct };
+module.exports = { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus };

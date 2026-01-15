@@ -10,11 +10,11 @@ const productSchema = mongoose.Schema({
     ref: "Category",
     required: true,
   },
-  size: {
+  size: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "Size",
     required: true,
-  },
+  }],
   price: {
     type: Number,
     required: true,
@@ -27,8 +27,15 @@ const productSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-}, {
-  timestamps: true
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    immutable: true
+  }
 });
 
 const ProductModel = mongoose.model("Product", productSchema);

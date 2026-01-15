@@ -66,6 +66,29 @@ const EditBanner = async (req, res) => {
   }
 };
 
+const UpdateStatus = async (req, res) => {
+  let { id } = req.params;
+  let { isActive } = req.body;
+  let obj = {
+    isActive: isActive,
+  };
+
+  if (Object.keys(obj).length === 0) {
+    return res.status(400).send(SendResponse(false, null, "Required data to update"));
+  };
+
+  try {
+    const result = await BannerModel.findByIdAndUpdate(id, obj, { new: true });
+    if (!result) {
+      res.status(404).send(SendResponse(false, null, "Banner not found"));
+    } else {
+      res.status(200).send(SendResponse(true, result, "Status Updated Successfully"));
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 const DeleteBanner = async (req, res) => {
   const { id } = req.params;
   try {
@@ -80,4 +103,4 @@ const DeleteBanner = async (req, res) => {
   }
 }
 
-module.exports = { Banners, CreateBanner, EditBanner, DeleteBanner };
+module.exports = { Banners, CreateBanner, EditBanner, DeleteBanner, UpdateStatus };

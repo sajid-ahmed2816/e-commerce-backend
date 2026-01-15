@@ -4,6 +4,8 @@ const { SendResponse } = require("../helper/SendResponse");
 const UserModel = require("../models/UserModel");
 const admin = require("../firebaseAdmin");
 const Paginate = require("../helper/Paginate");
+const SendOTPEmail = require("../helper/SendOTPEmail");
+const crypto = require("crypto");
 
 const JWT_SECRET = process.env.JWT_SECRET
 
@@ -55,25 +57,35 @@ const Signup = async (req, res) => {
     });
 
     if (errArr.length > 0) {
-      res.status(400).send(SendResponse(false, null, "Required all data"));
-    }
+      return res.status(400).send(SendResponse(false, null, "Required all data"));
+    };
 
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(409).send(SendResponse(false, null, "Email already registered"));
+    };
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const result = new UserModel({
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    const user = new UserModel({
       firstName,
       lastName,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      otp: hashedOtp,
+      otpExpiresAt: Date.now() + 10 * 60 * 1000, // 10 min
+      isVerified: false
     });
-    await result.save();
-    if (result) {
-      return res.status(200).send(SendResponse(true, result, "Signup Successfully"));
-    }
+
+    await user.save();
+    await SendOTPEmail(email, otp);
+    return res.status(200).send(SendResponse(true, user, "OTP send to your email"));
   } catch (error) {
     return res.status(500).send(SendResponse(false, null, "Internal error"));
   }
-}
+};
 
 const Auth = async (req, res) => {
   try {
@@ -158,4 +170,77 @@ const Users = async (req, res) => {
   };
 };
 
-module.exports = { Auth, Login, Signup, Users };
+const VerifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).send(SendResponse(false, null, "Email and OTP required"));
+    };
+
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).send(SendResponse(false, null, "User not found"));
+    };
+
+    if (user.isVerified) {
+      return res.status(400).send(SendResponse(false, null, "User already verified"));
+    };
+
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).send(SendResponse(false, null, "OTP expired"));
+    };
+
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    if (hashedOtp !== user.otp) {
+      return res.status(400).send(SendResponse(false, null, "Invalid OTP"));
+    };
+
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiresAt = undefined;
+    await user.save();
+
+    res.status(200).send(SendResponse(true, user, "Email verified successfully"));
+  } catch (error) {
+    res.status(500).send(SendResponse(false, null, "Internal server error"));
+  };
+};
+
+const ResendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).send(SendResponse(false, null, "Email is required"));
+    }
+
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).send(SendResponse(false, null, "User not found"));
+    }
+
+    if (user.isVerified) {
+      return res.status(400).send(SendResponse(false, null, "User already verified"));
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    // Update user with new OTP and expiry
+    user.otp = hashedOtp;
+    user.otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
+
+    // Send OTP to email
+    await SendOTPEmail(email, otp);
+
+    return res.status(200).send(SendResponse(true, null, "OTP resent to your email"));
+  } catch (error) {
+    return res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+module.exports = { Auth, Login, Signup, Users, VerifyOTP, ResendOTP };

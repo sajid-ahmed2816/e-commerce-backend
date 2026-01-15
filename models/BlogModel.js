@@ -21,7 +21,7 @@ const blogSchema = mongoose.Schema({
     type: Date,
     required: false
   },
-  timestamp: {
+  createdAt: {
     type: Date,
     default: Date.now,
     immutable: true

@@ -87,6 +87,29 @@ const EditCategory = async (req, res) => {
   }
 };
 
+const UpdateStatus = async (req, res) => {
+  let { id } = req.params;
+  let { isActive } = req.body;
+  let obj = {
+    isActive: isActive
+  };
+
+  if (Object.keys(obj).length === 0) {
+    return res.status(400).send(SendResponse(false, null, "Required data to update"));
+  };
+
+  try {
+    const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
+    if (!result) {
+      res.status(404).send(SendResponse(false, null, "Category not found"));
+    } else {
+      res.status(200).send(SendResponse(true, result, "Status Updated Successfully"));
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 const DeleteCategory = async (req, res) => {
   const { id } = req.params;
   try {
@@ -102,4 +125,4 @@ const DeleteCategory = async (req, res) => {
   }
 }
 
-module.exports = { AllCategories, CreateCategory, EditCategory, DeleteCategory };
+module.exports = { AllCategories, CreateCategory, EditCategory, DeleteCategory, UpdateStatus };

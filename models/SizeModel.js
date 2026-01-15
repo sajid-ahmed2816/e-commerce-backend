@@ -8,8 +8,15 @@ const sizeSchema = mongoose.Schema({
   description: {
     type: String,
   },
-}, {
-  timestamps: true
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    immutable: true
+  },
 });
 
 const SizeModel = mongoose.model("Size", sizeSchema);
