@@ -1,6 +1,21 @@
 const mongoose = require("mongoose");
 
+const generateOrderNumber = () => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let orderNo = "";
+  for (let i = 0; i < 8; i++) {
+    orderNo += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return orderNo;
+};
+
 const orderSchema = mongoose.Schema({
+  orderNo: {
+    type: String,
+    required: true,
+    unique: true,
+    default: generateOrderNumber,
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -66,6 +81,11 @@ const orderSchema = mongoose.Schema({
   total: {
     type: Number,
     required: true
+  },
+  status: {
+    type: String,
+    enum: ["pending", "paid", "shipped", "delivered", "cancelled"],
+    default: "pending",
   },
   createdAt: {
     type: Date,
