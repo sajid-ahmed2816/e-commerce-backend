@@ -4,7 +4,7 @@ const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
 
-router.get("/", AllCategories);
+router.get("", AllCategories);
 
 router.post("/create", verifyToken(["admin"]), CreateCategory);
 

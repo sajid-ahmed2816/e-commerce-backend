@@ -4,7 +4,7 @@ const { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus }
 
 const router = express.Router();
 
-router.get("/", AllProducts);
+router.get("", AllProducts);
 
 router.post("/create", verifyToken(["admin"]), CreateProduct);
 

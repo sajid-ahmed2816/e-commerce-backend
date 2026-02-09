@@ -4,6 +4,36 @@ const CategoryModel = require("../models/CategoryModel");
 const OrderModel = require("../models/OrderModel");
 const ProductModel = require("../models/ProductModel");
 const userModel = require("../models/UserModel");
+const {SendOCEmail} = require("../helper/SendEmail");
+
+const orderEmailTemplate = (order) => {
+  return `
+    <div style="font-family: Arial; line-height: 1.6">
+      <h2>Thank you for your order, ${order.firstName}!</h2>
+
+      <p>Your order has been placed successfully.</p>
+
+      <h3>Order Details</h3>
+      <p><strong>Order ID:</strong> ${order.orderNo}</p>
+      <p><strong>Total:</strong> Rs ${order.total}</p>
+
+      <h3>Items:</h3>
+      <ul>
+        ${order.items
+          .map(
+            (item) =>
+              `<li>${item.product.name} × ${item.quantity}</li>`
+          )
+          .join("")}
+      </ul>
+
+      <p>We’ll notify you once your order is shipped.</p>
+
+      <br/>
+      <p>— Fashion Store Team</p>
+    </div>
+  `;
+};
 
 const Orders = async (req, res) => {
   try {
@@ -104,6 +134,16 @@ const CreateOrder = async (req, res) => {
     if (!result) {
       res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
+      const populatedOrder = await OrderModel.findById(result._id).populate("items.product");
+      const io = req.app.get("io");
+      io.emit("new-order", {
+        message: "New order received"
+      });
+      await SendOCEmail({
+      to: email,
+      subject: "Order Confirmation - Fashion Store",
+      html: orderEmailTemplate(populatedOrder),
+    });
       res.status(200).send(SendResponse(true, result, "Order Placed Successfully"));
     };
   } catch (error) {

@@ -2,7 +2,7 @@ const transporter = require("../config/NodemailerConfig");
 
 const SendOTPEmail = async (email, otp) => {
   await transporter.sendMail({
-    from: `"Ecommerce Store" <${process.env.EMAIL_USER}>`,
+    from: `"Fashion Store" <${process.env.EMAIL_USER}>`,
     to: email,
     subject: "Email Verification OTP",
     html: `
@@ -14,4 +14,13 @@ const SendOTPEmail = async (email, otp) => {
   });
 };
 
-module.exports = SendOTPEmail;
+const SendOCEmail = async ({to, subject, html}) => {
+  await transporter.sendMail({
+    from: `"Fashion Store" <${process.env.EMAIL_USER}>`,
+    to: to,
+    subject: subject,
+    html
+  });
+};
+
+module.exports = {SendOTPEmail, SendOCEmail};

@@ -4,7 +4,7 @@ const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
 
-router.get("/", Blogs);
+router.get("", Blogs);
 
 router.post("/create", verifyToken(["admin"]), CreateBlog);
 

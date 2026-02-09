@@ -4,7 +4,7 @@ const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
 
-router.get("/", AllSizes);
+router.get("", AllSizes);
 
 router.post("/create", verifyToken(["admin"]), CreateSize);
 

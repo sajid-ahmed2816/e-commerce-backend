@@ -4,7 +4,7 @@ const { SendResponse } = require("../helper/SendResponse");
 const UserModel = require("../models/UserModel");
 const admin = require("../firebaseAdmin");
 const Paginate = require("../helper/Paginate");
-const SendOTPEmail = require("../helper/SendOTPEmail");
+const {SendOTPEmail} = require("../helper/SendEmail");
 const crypto = require("crypto");
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -17,7 +17,7 @@ const Login = async (req, res) => {
       return res.status(400).send(SendResponse(false, null, "Email and password are required"));
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email }).select("+password");
     if (!user) {
       return res.status(404).send(SendResponse(false, null, "User not found"));
     }
