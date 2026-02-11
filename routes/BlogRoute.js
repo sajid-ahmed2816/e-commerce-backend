@@ -1,5 +1,5 @@
 const express = require("express");
-const { Blogs, CreateBlog, EditBlog, DeleteBlog } = require("../controller/BlogController");
+const { Blogs, CreateBlog, EditBlog, DeleteBlog, UpdateStatus } = require("../controller/BlogController");
 const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
@@ -11,5 +11,7 @@ router.post("/create", verifyToken(["admin"]), CreateBlog);
 router.patch("/update/:id", verifyToken(["admin"]), EditBlog);
 
 router.delete("/delete/:id", verifyToken(["admin"]), DeleteBlog);
+
+router.patch("/updateStatus/:id", verifyToken(["admin"]), UpdateStatus);
 
 module.exports = router;

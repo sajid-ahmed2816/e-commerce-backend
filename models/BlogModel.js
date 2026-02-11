@@ -1,25 +1,25 @@
 const mongoose = require("mongoose");
 
 const blogSchema = mongoose.Schema({
-  name: {
+  title: {
     type: String,
     required: true,
   },
-  type: {
+  slug: {
     type: String,
-    required: true,
-  },
-  image: {
-    type: String,
-    required: true,
+    unique: true,
   },
   content: {
     type: String,
     required: true
   },
-  date: {
-    type: Date,
-    required: false
+  thumbnail: {
+    type: String,
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["draft", "published"]
   },
   createdAt: {
     type: Date,

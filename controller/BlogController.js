@@ -1,21 +1,43 @@
+const Paginate = require("../helper/Paginate");
 const { SendResponse } = require("../helper/SendResponse");
 const BlogModel = require("../models/BlogModel");
 
 const Blogs = async (req, res) => {
   try {
-    let result = await BlogModel.find();
-    if (result) {
-      res.send(SendResponse(true, { blogs: result }, "All Blogs")).status(200);
+    const { search, page = 1, limit = 10 } = req.query;
+    let query = {};
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { slug: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+      ];
     }
+    const result = await Paginate({
+          model: BlogModel,
+          query,
+          page,
+          limit,
+        });
+    if (result) {
+      return res.status(200).send(SendResponse(
+        true, 
+        { 
+          blogs: result.data,
+          pagination: result.pagination,
+        }, 
+        "All Blogs"
+      ));
+    };
   } catch (err) {
-    res.send(SendResponse(null, null, "Internal server error").status(500));
-  }
+    return res.status(500).send(SendResponse(null, null, "Internal server error", err.message));
+  };
 };
 
 const CreateBlog = async (req, res) => {
-  let { name, type, image, content, date } = req.body;
-  let obj = { name, type, image, content, date };
-  let reqArr = ["name", "type", "image", "content", "date"];
+  let { title, slug, thumbnail, content, status } = req.body;
+  let obj = { title, slug, thumbnail, content, status };
+  let reqArr = ["title", "slug", "thumbnail", "content", "status"];
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -43,13 +65,13 @@ const CreateBlog = async (req, res) => {
 
 const EditBlog = async (req, res) => {
   let { id } = req.params;
-  let { name, type, image, content, date } = req.body;
+  let { title, slug, thumbnail, content, status } = req.body;
   let obj = {
-    ...(name && { name }),
-    ...(type && { type }),
-    ...(image && { image }),
+    ...(title && { title }),
+    ...(slug && { slug }),
+    ...(thumbnail && { thumbnail }),
     ...(content && { content }),
-    ...(date && { date }),
+    ...(status && { status }),
   };
 
   if (Object.keys(obj).length === 0) {
@@ -80,6 +102,29 @@ const DeleteBlog = async (req, res) => {
   } catch (err) {
     res.send(SendResponse(false, null, "Internal server error")).status(500);
   }
-}
+};
 
-module.exports = { Blogs, CreateBlog, EditBlog, DeleteBlog };
+const UpdateStatus = async (req, res) => {
+  let { id } = req.params;
+  let { status } = req.body;
+  let obj = {
+    status: status
+  };
+
+  if (Object.keys(obj).length === 0) {
+    return res.status(400).send(SendResponse(false, null, "Required data to update"));
+  };
+
+  try {
+    const result = await BlogModel.findByIdAndUpdate(id, obj, { new: true });
+    if (!result) {
+      return res.status(404).send(SendResponse(false, null, "Blog not found"));
+    } else {
+      return res.status(200).send(SendResponse(true, result, "Status Updated Successfully"));
+    }
+  } catch (error) {
+    return res.status(500).send(SendResponse(false, null, "Internal server error", err.message));
+  }
+};
+
+module.exports = { Blogs, CreateBlog, EditBlog, DeleteBlog, UpdateStatus };

@@ -31,7 +31,7 @@ const AllProducts = async (req, res) => {
       populate: ["category", "size"],
     });
     if (result) {
-      res.status(200).send(SendResponse(
+      return res.status(200).send(SendResponse(
         true,
         {
           products: result.data,
@@ -41,7 +41,7 @@ const AllProducts = async (req, res) => {
       ));
     };
   } catch (error) {
-    res.status(500).send(SendResponse(null, null, "Internal server error"))
+    return res.status(500).send(SendResponse(null, null, "Internal server error"))
   };
 };
 
