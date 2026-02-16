@@ -12,20 +12,20 @@ const Blogs = async (req, res) => {
         { slug: { $regex: search, $options: "i" } },
         { content: { $regex: search, $options: "i" } },
       ];
-    }
+    };
     const result = await Paginate({
-          model: BlogModel,
-          query,
-          page,
-          limit,
-        });
+      model: BlogModel,
+      query,
+      page,
+      limit,
+    });
     if (result) {
       return res.status(200).send(SendResponse(
-        true, 
-        { 
+        true,
+        {
           blogs: result.data,
           pagination: result.pagination,
-        }, 
+        },
         "All Blogs"
       ));
     };

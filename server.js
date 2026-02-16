@@ -16,6 +16,7 @@ const AuthRoute = require("./routes/AuthRoute");
 const UserRoute = require("./routes/UserRoute");
 const SizeRoute = require("./routes/SizeRoute");
 const OfferRoute = require("./routes/OfferRoute");
+const DashboardRoute = require("./routes/DashboardRoute");
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +44,7 @@ app.use("/api/banners", BannerRoute);
 app.use("/api/orders", OrderRoute);
 app.use("/api/sizes", SizeRoute);
 app.use("/api/offers", OfferRoute);
+app.use("/api/dashboard", DashboardRoute);
 
 mongoose.connect(process.env.MONGO_URI).then(() => {
   server.listen(process.env.PORT, () => {

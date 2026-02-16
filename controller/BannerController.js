@@ -1,14 +1,42 @@
+const Paginate = require("../helper/Paginate");
 const { SendResponse } = require("../helper/SendResponse");
 const BannerModel = require("../models/BannerModel");
+const CategoryModel = require("../models/CategoryModel");
 
 const Banners = async (req, res) => {
   try {
-    let result = await BannerModel.find().populate("category");
+    const { search, page = 1, limit = 10, category } = req.query;
+    let query = {};
+    if (search) {
+      let categoryIds = [];
+      if (!category) {
+        const categories = await CategoryModel.find({
+          name: { $regex: search, $options: "i" }
+        }).select("_id");
+        categoryIds = categories.map(c => c._id);
+      };
+      query.$or = [
+        { tagline: { $regex: search, $options: "i" } },
+        ...(categoryIds.length > 0 ? [{ category: { $in: categoryIds } }] : [])
+      ];
+    };
+    const result = await Paginate({
+      model: BannerModel,
+      query,
+      page,
+      limit,
+    });
     if (result) {
-      res.send(SendResponse(true, { banners: result }, "All Banners")).status(200);
+      return res.status(200).send(SendResponse(
+        true, { 
+          banners: result.data,
+          pagination: result.pagination,
+        }, 
+        "All Banners"
+      ));
     }
   } catch (err) {
-    res.send(SendResponse(null, null, "Internal server error").status(500));
+    return res.status(500).send(SendResponse(null, null, "Internal server error", err.message));
   }
 };
 
