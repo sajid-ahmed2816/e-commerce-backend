@@ -4,6 +4,7 @@ const categorySchema = mongoose.Schema({
   name: {
     type: String,
     required: true,
+    unique: true
   },
   type: {
     type: String,
@@ -16,6 +17,10 @@ const categorySchema = mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  isPopular: {
+    type: Boolean,
+    default: false
   },
   createdAt: {
     type: Date,

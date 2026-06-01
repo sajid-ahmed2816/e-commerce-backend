@@ -20,18 +20,20 @@ const Banners = async (req, res) => {
         ...(categoryIds.length > 0 ? [{ category: { $in: categoryIds } }] : [])
       ];
     };
+    const populate = "category";
     const result = await Paginate({
       model: BannerModel,
       query,
       page,
       limit,
+      populate
     });
     if (result) {
       return res.status(200).send(SendResponse(
-        true, { 
-          banners: result.data,
-          pagination: result.pagination,
-        }, 
+        true, {
+        banners: result.data,
+        pagination: result.pagination,
+      },
         "All Banners"
       ));
     }
