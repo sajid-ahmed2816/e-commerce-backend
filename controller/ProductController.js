@@ -2,6 +2,11 @@ const { SendResponse } = require("../helper/SendResponse");
 const ProductModel = require("../models/ProductModel");
 const CategoryModel = require("../models/CategoryModel");
 const Paginate = require("../helper/Paginate");
+const multer = require("multer");
+const XLSX = require("xlsx");
+const SizeModel = require("../models/SizeModel");
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const AllProducts = async (req, res) => {
   try {
@@ -141,4 +146,129 @@ const DeleteProduct = async (req, res) => {
   };
 };
 
-module.exports = { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus };
+const BulkUploadProducts = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send(SendResponse(false, null, "No file uploaded"));
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    if (!rows.length) {
+      return res.status(400).send(SendResponse(false, null, "Excel file is empty"));
+    }
+
+    const productsToInsert = [];
+    const errors = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const rowNumber = i + 2;
+
+      // Trim all string values (remove extra spaces, tabs)
+      Object.keys(row).forEach(key => {
+        if (typeof row[key] === 'string') {
+          row[key] = row[key].trim();
+        }
+      });
+
+      // Required fields – "size" ko hata diya (optional now)
+      const requiredFields = ["name", "category", "description", "price"];
+      const missing = requiredFields.filter(f => !row[f]);
+      if (missing.length) {
+        errors.push({ row: rowNumber, error: `Missing required fields: ${missing.join(", ")}` });
+        continue;
+      }
+
+      // Category resolution (mandatory)
+      const category = await CategoryModel.findOne({
+        name: { $regex: `^${row.category}$`, $options: "i" }
+      });
+      if (!category) {
+        errors.push({ row: rowNumber, error: `Category "${row.category}" not found` });
+        continue;
+      }
+
+      // 🔹 Size resolution – optional now
+      let sizeIds = [];
+      if (row.size && row.size !== "") {
+        let sizeDoc = await SizeModel.findOne({
+          size: { $regex: `^${row.size}$`, $options: "i" }
+        });
+        if (!sizeDoc) {
+          // Auto-create new size
+          sizeDoc = await SizeModel.create({ size: row.size });
+          console.log(`Auto-created new size: "${row.size}" with ID ${sizeDoc._id}`);
+        }
+        sizeIds = [sizeDoc._id];
+      }
+      // else sizeIds remains [] – product will have no size
+
+      // Price validation
+      const price = parseFloat(row.price);
+      if (isNaN(price)) {
+        errors.push({ row: rowNumber, error: `Invalid price: "${row.price}"` });
+        continue;
+      }
+
+      // Image handling – default placeholder if missing
+      const imageUrl = row.image && row.image.trim() !== ""
+        ? row.image
+        : "https://placehold.co/600x400?text=No+Image";
+
+      // Prepare product object
+      productsToInsert.push({
+        name: row.name,
+        category: category._id,
+        size: sizeIds,           // empty array if no size
+        description: row.description,
+        image: imageUrl,
+        price: price,
+        isActive: row.isActive ? row.isActive.toString().toLowerCase() === "true" : true,
+      });
+    }
+
+    console.log(`Total products to insert: ${productsToInsert.length}`);
+
+    let insertedCount = 0;
+    if (productsToInsert.length) {
+      try {
+        const result = await ProductModel.insertMany(productsToInsert, { ordered: false });
+        insertedCount = result.length;
+        console.log(`Inserted ${insertedCount} products`);
+      } catch (bulkError) {
+        console.error("Bulk insert error:", bulkError);
+        if (bulkError.code === 11000 || bulkError.name === "BulkWriteError") {
+          insertedCount = bulkError.insertedDocs?.length || 0;
+          if (bulkError.writeErrors) {
+            bulkError.writeErrors.forEach(err => {
+              errors.push({ row: "unknown", error: err.errmsg });
+            });
+          }
+        } else {
+          throw bulkError;
+        }
+      }
+    } else {
+      console.warn("No products to insert");
+    }
+
+    return res.status(200).send(SendResponse(
+      true,
+      {
+        totalRows: rows.length,
+        inserted: insertedCount,
+        failed: errors.length,
+        errors,
+      },
+      "Bulk upload completed"
+    ));
+  } catch (error) {
+    console.error("Outer catch:", error);
+    return res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+module.exports = { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus, BulkUploadProducts, upload };

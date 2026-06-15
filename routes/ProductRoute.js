@@ -1,12 +1,14 @@
 const express = require("express");
 const verifyToken = require("../middleware/Auth");
-const { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus } = require("../controller/ProductController");
+const { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus, BulkUploadProducts, upload } = require("../controller/ProductController");
 
 const router = express.Router();
 
 router.get("", AllProducts);
 
 router.post("/create", verifyToken(["admin"]), CreateProduct);
+
+router.post("/bulk-upload", upload.single("file"), BulkUploadProducts);
 
 router.patch("/update/:id", verifyToken(["admin"]), UpdateProduct);
 
