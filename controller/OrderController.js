@@ -4,7 +4,7 @@ const CategoryModel = require("../models/CategoryModel");
 const OrderModel = require("../models/OrderModel");
 const ProductModel = require("../models/ProductModel");
 const userModel = require("../models/UserModel");
-const {SendOCEmail} = require("../helper/SendEmail");
+const { SendOCEmail } = require("../helper/SendEmail");
 
 const orderEmailTemplate = (order) => {
   return `
@@ -20,11 +20,11 @@ const orderEmailTemplate = (order) => {
       <h3>Items:</h3>
       <ul>
         ${order.items
-          .map(
-            (item) =>
-              `<li>${item.product.name} × ${item.quantity}</li>`
-          )
-          .join("")}
+      .map(
+        (item) =>
+          `<li>${item.product.name} × ${item.quantity}</li>`
+      )
+      .join("")}
       </ul>
 
       <p>We’ll notify you once your order is shipped.</p>
@@ -35,29 +35,105 @@ const orderEmailTemplate = (order) => {
   `;
 };
 
-const Orders = async (req, res) => {
+// const Orders = async (req, res) => {
+//   try {
+//     const { search, page = 1, limit = 10, category, product } = req.query;
+//     let query = {};
+//     if (search) {
+//       let categoryIds = [];
+//       let productIds = [];
+//       let userIds = [];
+//       if (!category) {
+//         const categories = await CategoryModel.find({
+//           name: { $regex: search, $options: "i" }
+//         }).select("_id");
+//         categoryIds = categories.map(c => c._id);
+//       };
+//       if (!product) {
+//         const products = await ProductModel.find({
+//           $or: [
+//             { name: { $regex: search, $options: "i" } },
+//             ...(categoryIds.length > 0) ? [{ category: { $in: categoryIds } }] : []
+//           ]
+//         }).select("_id");
+//         productIds = products.map(p => p._id);
+//       };
+//       const users = await userModel.find({
+//         $or: [
+//           { firstName: { $regex: search, $options: "i" } },
+//           { lastName: { $regex: search, $options: "i" } },
+//           { email: { $regex: search, $options: "i" } }
+//         ]
+//       }).select("_id");
+//       userIds = users.map(u => u._id);
+//       query.$or = [
+//         { name: { $regex: search, $options: "i" } },
+//         ...(productIds.length > 0) ? [{ "items.product": { $in: productIds } }] : [],
+//         ...(userIds.length > 0) ? [{ user: { $in: userIds } }] : [],
+//         { firstName: { $regex: search, $options: "i" } },
+//         { lastName: { $regex: search, $options: "i" } },
+//         { email: { $regex: search, $options: "i" } }
+//       ];
+//     };
+//     if (category) {
+//       query.category = category;
+//     };
+//     if (product) {
+//       query.product = product;
+//     };
+//     let result = await Paginate({
+//       model: OrderModel,
+//       query,
+//       page,
+//       limit,
+//       populate: [
+//         { path: "user" },
+//         { path: "items.product", populate: "category" }]
+//     })
+//     if (result) {
+//       return res.status(200).send(SendResponse(
+//         true,
+//         {
+//           orders: result.data,
+//           pagination: result.pagination,
+//         },
+//         "All Orders"
+//       ));
+//     }
+//   } catch (err) {
+//     console.log("🚀 ~ Orders ~ err:", err)
+//     res.status(500).send(SendResponse(null, null, "Internal server error"));
+//   }
+// };
+
+const getAllOrders = async (req, res) => {
   try {
     const { search, page = 1, limit = 10, category, product } = req.query;
+
     let query = {};
+
     if (search) {
       let categoryIds = [];
       let productIds = [];
       let userIds = [];
+
       if (!category) {
         const categories = await CategoryModel.find({
           name: { $regex: search, $options: "i" }
         }).select("_id");
         categoryIds = categories.map(c => c._id);
-      };
+      }
+
       if (!product) {
         const products = await ProductModel.find({
           $or: [
             { name: { $regex: search, $options: "i" } },
-            ...(categoryIds.length > 0) ? [{ category: { $in: categoryIds } }] : []
+            ...(categoryIds.length > 0 ? [{ category: { $in: categoryIds } }] : [])
           ]
         }).select("_id");
         productIds = products.map(p => p._id);
-      };
+      }
+
       const users = await userModel.find({
         $or: [
           { firstName: { $regex: search, $options: "i" } },
@@ -66,43 +142,127 @@ const Orders = async (req, res) => {
         ]
       }).select("_id");
       userIds = users.map(u => u._id);
+
       query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        ...(productIds.length > 0) ? [{ "items.product": { $in: productIds } }] : [],
-        ...(userIds.length > 0) ? [{ user: { $in: userIds } }] : [],
+        { orderNo: { $regex: search, $options: "i" } },
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } }
+        { email: { $regex: search, $options: "i" } },
+        { mobile: { $regex: search, $options: "i" } },
+        ...(productIds.length > 0 ? [{ "items.product": { $in: productIds } }] : []),
+        ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : [])
       ];
-    };
+    }
+
     if (category) {
-      query.category = category;
-    };
+      const productIdsInCategory = await ProductModel.find({ category }).select("_id");
+      const prodIds = productIdsInCategory.map(p => p._id);
+      query["items.product"] = { $in: prodIds };
+    }
+
     if (product) {
-      query.product = product;
-    };
-    let result = await Paginate({
+      query["items.product"] = product;
+    }
+
+    // Use paginate helper
+    const result = await Paginate({
       model: OrderModel,
       query,
       page,
       limit,
-      populate: [
-        { path: "user" },
-        { path: "items.product", populate: "category" }]
-    })
+      populate: [],
+      sort: { createdAt: -1 } // latest first
+    });
+
     if (result) {
+      const ordersFormatted = result.data.map(order => ({
+        id: order._id,
+        orderNo: order.orderNo,
+        customerName: `${order.firstName} ${order.lastName}`,
+        mobile: order.mobile,
+        productCount: order.items.length,
+        total: order.total,
+        city: order.city,
+        createdAt: order.createdAt,
+        status: order.status
+      }));
+
       return res.status(200).send(SendResponse(
         true,
         {
-          orders: result.data,
+          orders: ordersFormatted,
           pagination: result.pagination,
         },
         "All Orders"
       ));
     }
   } catch (err) {
-    console.log("🚀 ~ Orders ~ err:", err)
-    res.status(500).send(SendResponse(null, null, "Internal server error"));
+    console.log("🚀 ~ getAllOrders ~ err:", err);
+    res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+const getOrderDetailById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).send(SendResponse(false, null, "Order ID is required"));
+    }
+
+    const order = await OrderModel.findById(id)
+      .populate({
+        path: "items.product",
+        select: "name price images category"
+      });
+
+    if (!order) {
+      return res.status(404).send(SendResponse(false, null, "Order not found"));
+    }
+
+    const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    const orderDetail = {
+      id: order._id,
+      orderNo: order.orderNo,
+      customer: {
+        name: `${order.firstName} ${order.lastName}`,
+        email: order.email,
+        mobile: order.mobile,
+        billingAddress: order.billingAddress,
+        orderDate: order.createdAt,
+      },
+      summary: {
+        subtotal: subtotal,
+        deliveryCharge: order.dc,
+        total: order.total,
+        orderId: order._id,
+      },
+      items: order.items.map(item => ({
+        product: item.product ? {
+          id: item.product._id,
+          name: item.product.name,
+          price: item.product.price,
+        } : null,
+        quantity: item.quantity,
+        priceEach: item.price,
+        total: item.price * item.quantity,
+      })),
+      status: order.status,
+      shippingAddress: order.shippingAddress,
+      city: order.city,
+      state: order.state,
+      zip: order.zip,
+    };
+
+    return res.status(200).send(SendResponse(
+      true,
+      { order: orderDetail },
+      "Order details fetched"
+    ));
+  } catch (err) {
+    console.log("🚀 ~ getOrderDetailById ~ err:", err);
+    res.status(500).send(SendResponse(false, null, "Internal server error"));
   }
 };
 
@@ -140,10 +300,10 @@ const CreateOrder = async (req, res) => {
         message: "New order received"
       });
       await SendOCEmail({
-      to: email,
-      subject: "Order Confirmation - Fashion Store",
-      html: orderEmailTemplate(populatedOrder),
-    });
+        to: email,
+        subject: "Order Confirmation - Fashion Store",
+        html: orderEmailTemplate(populatedOrder),
+      });
       res.status(200).send(SendResponse(true, result, "Order Placed Successfully"));
     };
   } catch (error) {
@@ -196,4 +356,4 @@ const DeleteOrder = async (req, res) => {
   }
 };
 
-module.exports = { Orders, CreateOrder, EditOrder, DeleteOrder };
+module.exports = { getAllOrders, getOrderDetailById, CreateOrder, EditOrder, DeleteOrder };

@@ -1,10 +1,12 @@
 const express = require("express");
-const { Orders, CreateOrder, EditOrder, DeleteOrder } = require("../controller/OrderController");
+const { getAllOrders, getOrderDetailById, CreateOrder, EditOrder, DeleteOrder } = require("../controller/OrderController");
 const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
 
-router.get("", verifyToken(["admin"]), Orders);
+router.get("", verifyToken(["admin"]), getAllOrders);
+
+router.get("/order-detail/:id", verifyToken(["admin"]), getOrderDetailById);
 
 router.post("/create", verifyToken(["admin", "user"]), CreateOrder);
 
