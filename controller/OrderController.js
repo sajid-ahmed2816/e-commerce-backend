@@ -35,77 +35,6 @@ const orderEmailTemplate = (order) => {
   `;
 };
 
-// const Orders = async (req, res) => {
-//   try {
-//     const { search, page = 1, limit = 10, category, product } = req.query;
-//     let query = {};
-//     if (search) {
-//       let categoryIds = [];
-//       let productIds = [];
-//       let userIds = [];
-//       if (!category) {
-//         const categories = await CategoryModel.find({
-//           name: { $regex: search, $options: "i" }
-//         }).select("_id");
-//         categoryIds = categories.map(c => c._id);
-//       };
-//       if (!product) {
-//         const products = await ProductModel.find({
-//           $or: [
-//             { name: { $regex: search, $options: "i" } },
-//             ...(categoryIds.length > 0) ? [{ category: { $in: categoryIds } }] : []
-//           ]
-//         }).select("_id");
-//         productIds = products.map(p => p._id);
-//       };
-//       const users = await userModel.find({
-//         $or: [
-//           { firstName: { $regex: search, $options: "i" } },
-//           { lastName: { $regex: search, $options: "i" } },
-//           { email: { $regex: search, $options: "i" } }
-//         ]
-//       }).select("_id");
-//       userIds = users.map(u => u._id);
-//       query.$or = [
-//         { name: { $regex: search, $options: "i" } },
-//         ...(productIds.length > 0) ? [{ "items.product": { $in: productIds } }] : [],
-//         ...(userIds.length > 0) ? [{ user: { $in: userIds } }] : [],
-//         { firstName: { $regex: search, $options: "i" } },
-//         { lastName: { $regex: search, $options: "i" } },
-//         { email: { $regex: search, $options: "i" } }
-//       ];
-//     };
-//     if (category) {
-//       query.category = category;
-//     };
-//     if (product) {
-//       query.product = product;
-//     };
-//     let result = await Paginate({
-//       model: OrderModel,
-//       query,
-//       page,
-//       limit,
-//       populate: [
-//         { path: "user" },
-//         { path: "items.product", populate: "category" }]
-//     })
-//     if (result) {
-//       return res.status(200).send(SendResponse(
-//         true,
-//         {
-//           orders: result.data,
-//           pagination: result.pagination,
-//         },
-//         "All Orders"
-//       ));
-//     }
-//   } catch (err) {
-//     console.log("🚀 ~ Orders ~ err:", err)
-//     res.status(500).send(SendResponse(null, null, "Internal server error"));
-//   }
-// };
-
 const getAllOrders = async (req, res) => {
   try {
     const { search, page = 1, limit = 10, category, product } = req.query;
@@ -176,12 +105,14 @@ const getAllOrders = async (req, res) => {
 
     if (result) {
       const ordersFormatted = result.data.map(order => ({
-        id: order._id,
+        _id: order._id,
         orderNo: order.orderNo,
         customerName: `${order.firstName} ${order.lastName}`,
         mobile: order.mobile,
         productCount: order.items.length,
         total: order.total,
+        country: order.country,
+        state: order.state,
         city: order.city,
         createdAt: order.createdAt,
         status: order.status
@@ -223,7 +154,7 @@ const getOrderDetailById = async (req, res) => {
     const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
     const orderDetail = {
-      id: order._id,
+      _id: order._id,
       orderNo: order.orderNo,
       customer: {
         name: `${order.firstName} ${order.lastName}`,
@@ -267,9 +198,9 @@ const getOrderDetailById = async (req, res) => {
 };
 
 const CreateOrder = async (req, res) => {
-  let { user, firstName, lastName, email, items, mobile, billingAddress, city, state, dc, total } = req.body;
-  let obj = { user, firstName, lastName, email, items, mobile, billingAddress, city, state, dc, total };
-  let reqArr = ["user", "firstName", "lastName", "email", "items", "mobile", "billingAddress", "city", "state", "dc", "total"];
+  let { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, dc, total } = req.body;
+  let obj = { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, dc, total };
+  let reqArr = ["user", "firstName", "lastName", "email", "items", "mobile", "billingAddress", "country", "city", "state", "dc", "total"];
   let errArr = [];
 
   reqArr.forEach((item) => {

@@ -13,11 +13,12 @@ const AllCategories = async (req, res) => {
         { type: { $regex: search, $options: "i" } },
       ]
     };
+    const finalLimit = limit === 'all' ? Number.MAX_SAFE_INTEGER : parseInt(limit);
     const result = await Paginate({
       model: CategoryModel,
       query,
-      page,
-      limit,
+      page: parseInt(page),
+      limit: finalLimit,
     });
     if (result) {
       res.status(200).send(SendResponse(

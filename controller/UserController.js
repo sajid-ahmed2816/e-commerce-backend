@@ -4,7 +4,7 @@ const { SendResponse } = require("../helper/SendResponse");
 const UserModel = require("../models/UserModel");
 const admin = require("../firebaseAdmin");
 const Paginate = require("../helper/Paginate");
-const {SendOTPEmail} = require("../helper/SendEmail");
+const { SendOTPEmail } = require("../helper/SendEmail");
 const crypto = require("crypto");
 
 const JWT_SECRET = process.env.JWT_SECRET
@@ -114,12 +114,16 @@ const Auth = async (req, res) => {
     // Find or create user
     let user = await UserModel.findOne({ email });
     if (!user) {
+      const randomPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
       user = new UserModel({
         firstName,
         lastName,
         email,
         image: picture || null,
-        role: "user"
+        role: "user",
+        password: hashedPassword,
+        isVerified: true,
       });
       await user.save();
     }

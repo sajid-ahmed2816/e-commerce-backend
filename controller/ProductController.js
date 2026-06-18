@@ -10,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const AllProducts = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10, category } = req.query;
+    const { search, page = 1, limit = 10, category, minPrice, maxPrice } = req.query;
     let query = {};
     if (search) {
       let categoryIds = [];
@@ -28,6 +28,19 @@ const AllProducts = async (req, res) => {
     if (category) {
       query.category = category;
     };
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      query.price = {};
+      if (minPrice && !isNaN(parseFloat(minPrice))) {
+        query.price.$gte = parseFloat(minPrice);
+      }
+      if (maxPrice && !isNaN(parseFloat(maxPrice))) {
+        query.price.$lte = parseFloat(maxPrice);
+      }
+      // Agar dono hi nahi diye (edge case) toh price filter hata do
+      if (Object.keys(query.price).length === 0) {
+        delete query.price;
+      }
+    }
     const result = await Paginate({
       model: ProductModel,
       query,
@@ -271,4 +284,12 @@ const BulkUploadProducts = async (req, res) => {
   }
 };
 
-module.exports = { AllProducts, CreateProduct, UpdateProduct, DeleteProduct, UpdateStatus, BulkUploadProducts, upload };
+module.exports = {
+  AllProducts,
+  CreateProduct,
+  UpdateProduct,
+  DeleteProduct,
+  UpdateStatus,
+  BulkUploadProducts,
+  upload
+};
