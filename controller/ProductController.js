@@ -40,12 +40,17 @@ const AllProducts = async (req, res) => {
       if (Object.keys(query.price).length === 0) {
         delete query.price;
       }
-    }
+    };
+    if (req.query.isFeatured !== undefined) {
+      const isFeatured = req.query.isFeatured === 'true' || req.query.isFeatured === '1';
+      query.isFeatured = isFeatured;
+    };
+    const finalLimit = limit === 'all' ? Number.MAX_SAFE_INTEGER : parseInt(limit);
     const result = await Paginate({
       model: ProductModel,
       query,
-      page,
-      limit,
+      page: parseInt(page),
+      limit: finalLimit,
       populate: ["category", "size"],
     });
     if (result) {
@@ -95,7 +100,7 @@ const CreateProduct = async (req, res) => {
 
 const UpdateProduct = async (req, res) => {
   let { id } = req.params;
-  let { name, category, size, description, image, price, } = req.body;
+  let { name, category, size, description, image, price, isFeatured } = req.body;
   let obj = {};
   if (name) obj.name = name;
   if (category) obj.category = category;
@@ -103,6 +108,7 @@ const UpdateProduct = async (req, res) => {
   if (description) obj.description = description;
   if (image) obj.image = image;
   if (price) obj.price = price;
+  obj.isFeatured = isFeatured;
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
