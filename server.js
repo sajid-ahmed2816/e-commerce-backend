@@ -9,6 +9,7 @@ const OrderRoute = require("./routes/OrderRoute");
 const BannerRoute = require("./routes/BannerRoute");
 const AboutRoute = require("./routes/AboutRoute");
 const BlogRoute = require("./routes/BlogRoute");
+const SearchRoute = require("./routes/SearchRoute");
 const CategoryRoute = require("./routes/CategoryRoute");
 const ProductRoute = require("./routes/ProductRoute");
 const ImageRoute = require("./routes/ImageRoute");
@@ -17,6 +18,7 @@ const UserRoute = require("./routes/UserRoute");
 const SizeRoute = require("./routes/SizeRoute");
 const OfferRoute = require("./routes/OfferRoute");
 const DashboardRoute = require("./routes/DashboardRoute");
+const StripeRoute = require("./routes/Stripe");
 
 const app = express();
 const server = http.createServer(app);
@@ -27,7 +29,7 @@ const io = new Server(server, {
   },
 });
 
-io.on("connection", () => {});
+io.on("connection", () => { });
 
 app.set("io", io);
 
@@ -45,6 +47,8 @@ app.use("/api/orders", OrderRoute);
 app.use("/api/sizes", SizeRoute);
 app.use("/api/offers", OfferRoute);
 app.use("/api/dashboard", DashboardRoute);
+app.use("/api/stripe", StripeRoute);
+app.use("/api", SearchRoute);
 
 mongoose.connect(process.env.MONGO_URI).then(() => {
   server.listen(process.env.PORT, () => {

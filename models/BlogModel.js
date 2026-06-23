@@ -5,9 +5,9 @@ const blogSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  slug: {
-    type: String,
-    unique: true,
+  date: {
+    type: Date,
+    default: Date.now,
   },
   content: {
     type: String,

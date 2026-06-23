@@ -9,7 +9,6 @@ const Blogs = async (req, res) => {
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: "i" } },
-        { slug: { $regex: search, $options: "i" } },
         { content: { $regex: search, $options: "i" } },
       ];
     };
@@ -35,9 +34,9 @@ const Blogs = async (req, res) => {
 };
 
 const CreateBlog = async (req, res) => {
-  let { title, slug, thumbnail, content, status } = req.body;
-  let obj = { title, slug, thumbnail, content, status };
-  let reqArr = ["title", "slug", "thumbnail", "content", "status"];
+  let { title, date, thumbnail, content, status } = req.body;
+  let obj = { title, date, thumbnail, content, status };
+  let reqArr = ["title", "date", "thumbnail", "content", "status"];
   let errArr = [];
 
   reqArr.forEach((item) => {
