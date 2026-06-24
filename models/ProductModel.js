@@ -38,7 +38,16 @@ const productSchema = mongoose.Schema({
     type: Date,
     default: Date.now,
     immutable: true
-  }
+  },
+  discount: {
+    type: Number,
+    default: 0
+  },
+  discountType: {
+    type: String,
+    enum: ['percentage', 'fixed'],
+    default: 'percentage'
+  },
 });
 
 const ProductModel = mongoose.model("Product", productSchema);

@@ -29,7 +29,12 @@ const offerSchema = mongoose.Schema({
     endDate: {
         type: Date,
         required: true
-    }
+    },
+    category: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Category',
+        default: null,
+    },
 });
 
 const offerModel = mongoose.model("Offer", offerSchema);

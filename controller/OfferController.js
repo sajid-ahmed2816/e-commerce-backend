@@ -1,6 +1,7 @@
 const { SendResponse } = require("../helper/SendResponse");
 const OfferModel = require("../models/OfferModel");
 const Paginate = require("../helper/Paginate");
+const { normalizeDate } = require("../utils/normalizeDate");
 
 const AllOffers = async (req, res) => {
   try {
@@ -17,6 +18,7 @@ const AllOffers = async (req, res) => {
       query,
       page,
       limit,
+      populate: ["category"]
     });
     if (result) {
       return res.status(200).send(SendResponse(
@@ -34,9 +36,11 @@ const AllOffers = async (req, res) => {
 };
 
 const CreateOffer = async (req, res) => {
-  let { isActive, name, color, discountType, discountValue, startDate, endDate  } = req.body;
-  let obj = { isActive, name, color, discountType, discountValue, startDate, endDate };
-  let reqArr = [ "name", "color", "discountType", "discountValue", "startDate", "endDate"];
+  let { isActive, name, color, discountType, discountValue, startDate, endDate, category } = req.body;
+  let start_date = normalizeDate(startDate, false);
+  let end_date = normalizeDate(endDate, true);
+  let obj = { isActive, name, color, discountType, discountValue, startDate: start_date, endDate: end_date, category };
+  let reqArr = ["name", "color", "discountType", "discountValue", "startDate", "endDate", "category"];
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -58,21 +62,25 @@ const CreateOffer = async (req, res) => {
       return res.status(200).send(SendResponse(true, result, "Created Successfully"));
     }
   } catch (error) {
+    console.log("🚀 ~ CreateOffer ~ error:", error)
     return res.status(500).send(SendResponse(false, null, "Internal server error", error.message));
   }
 };
 
 const EditOffer = async (req, res) => {
   let { id } = req.params;
-  let { isActive, name, color, discountType, discountValue, startDate, endDate  } = req.body;
+  let { isActive, name, color, discountType, discountValue, startDate, endDate, category } = req.body;
+  const start_date = normalizeDate(startDate, false);
+  const end_date = normalizeDate(endDate, true);
   let obj = {};
   if (isActive) obj.isActive = isActive;
   if (name) obj.name = name;
   if (color) obj.color = color;
   if (discountType) obj.discountType = discountType;
   if (discountValue) obj.discountValue = discountValue;
-  if (startDate) obj.startDate = startDate;
-  if (endDate) obj.endDate = endDate;
+  if (startDate) obj.startDate = start_date;
+  if (endDate) obj.endDate = end_date;
+  if (category) obj.category = category;
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
@@ -86,6 +94,7 @@ const EditOffer = async (req, res) => {
       return res.status(200).send(SendResponse(true, result, "Updated Successfully"));
     }
   } catch (error) {
+    console.log("🚀 ~ EditOffer ~ error:", error)
     return res.status(500).send(SendResponse(false, null, "Internal server error", error.message));
   };
 };

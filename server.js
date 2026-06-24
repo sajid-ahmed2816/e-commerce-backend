@@ -1,3 +1,4 @@
+process.env.TZ = 'Asia/Karachi';
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
@@ -20,6 +21,7 @@ const DashboardRoute = require("./routes/DashboardRoute");
 const StripeRoute = require("./routes/Stripe");
 const SubscriptionRoute = require('./routes/SubscriptionRoute');
 const NotificationRoute = require("./routes/NotificationRoute");
+const processOffers = require("./utils/cron");
 
 const app = express();
 const server = http.createServer(app);
@@ -52,10 +54,16 @@ app.use('/api/push', SubscriptionRoute);
 app.use('/api/notifications', NotificationRoute);
 app.use("/api", SearchRoute);
 
+app.post('/api/cron/run', (req, res) => {
+  processOffers();
+  res.send('Cron executed');
+});
+
 mongoose.connect(process.env.MONGO_URI).then(() => {
   server.listen(process.env.PORT, () => {
     console.log(`Database connected successfull and Server running on ${process.env.PORT}`);
   });
+  require('./utils/cron');
 }).catch((err) => {
   console.log("err=>", err);
 });
