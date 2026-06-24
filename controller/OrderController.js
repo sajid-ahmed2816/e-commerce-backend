@@ -235,7 +235,9 @@ const CreateOrder = async (req, res) => {
     if (!result) {
       res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
+      //populate order
       const populatedOrder = await OrderModel.findById(result._id).populate("items.product");
+      // create notification
       const notification = new NotificationModel({
         orderId: result._id,
         orderNo: result.orderNo,
@@ -251,7 +253,7 @@ const CreateOrder = async (req, res) => {
       const payload = JSON.stringify({
         title: 'New Order',
         body: `Order #${result.orderNo} has been placed!`,
-        icon: '/logo192.png', // optional icon URL
+        icon: '/logo192.png',
       });
       const notifications = subscriptions.map(sub =>
         webpush.sendNotification(sub, payload).catch(err => {
