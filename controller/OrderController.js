@@ -1,3 +1,4 @@
+const webpush = require('web-push');
 const Paginate = require("../helper/Paginate");
 const { SendResponse } = require("../helper/SendResponse");
 const CategoryModel = require("../models/CategoryModel");
@@ -5,6 +6,14 @@ const OrderModel = require("../models/OrderModel");
 const ProductModel = require("../models/ProductModel");
 const userModel = require("../models/UserModel");
 const { SendOCEmail } = require("../helper/SendEmail");
+const SubscriptionModel = require('../models/SubscriptionModel');
+const NotificationModel = require('../models/NotificationModel');
+
+webpush.setVapidDetails(
+  'mailto:sajid.ahmed2816@gmail.com',
+  process.env.WEB_PUSH_PUBLIC_KEY,
+  process.env.WEB_PUSH_PRIVATE_KEY
+);
 
 const orderEmailTemplate = (order) => {
   return `
@@ -111,6 +120,7 @@ const getAllOrders = async (req, res) => {
         mobile: order.mobile,
         productCount: order.items.length,
         total: order.total,
+        paymentMethod: order.paymentMethod,
         country: order.country,
         state: order.state,
         city: order.city,
@@ -198,9 +208,9 @@ const getOrderDetailById = async (req, res) => {
 };
 
 const CreateOrder = async (req, res) => {
-  let { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, dc, total } = req.body;
-  let obj = { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, dc, total };
-  let reqArr = ["user", "firstName", "lastName", "email", "items", "mobile", "billingAddress", "country", "city", "state", "dc", "total"];
+  let { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, paymentMethod, dc, total } = req.body;
+  let obj = { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, paymentMethod, dc, total };
+  let reqArr = ["user", "firstName", "lastName", "email", "items", "mobile", "billingAddress", "country", "city", "state", "paymentMethod", "dc", "total"];
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -226,10 +236,32 @@ const CreateOrder = async (req, res) => {
       res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
       const populatedOrder = await OrderModel.findById(result._id).populate("items.product");
+      const notification = new NotificationModel({
+        orderId: result._id,
+        orderNo: result.orderNo,
+        message: `New order #${result.orderNo} placed by ${firstName} ${lastName}`,
+      });
+      await notification.save();
       const io = req.app.get("io");
+      io.emit('new-notification', notification);
       io.emit("new-order", {
         message: "New order received"
       });
+      const subscriptions = await SubscriptionModel.find();
+      const payload = JSON.stringify({
+        title: 'New Order',
+        body: `Order #${result.orderNo} has been placed!`,
+        icon: '/logo192.png', // optional icon URL
+      });
+      const notifications = subscriptions.map(sub =>
+        webpush.sendNotification(sub, payload).catch(err => {
+          // If subscription is invalid (expired), remove it
+          if (err.statusCode === 410) {
+            SubscriptionModel.deleteOne({ endpoint: sub.endpoint }).exec();
+          }
+        })
+      );
+      await Promise.allSettled(notifications);
       await SendOCEmail({
         to: email,
         subject: "Order Confirmation - Fashion Store",
@@ -245,14 +277,16 @@ const CreateOrder = async (req, res) => {
 
 const EditOrder = async (req, res) => {
   let { id } = req.params;
-  let { user, product, mobile, billingAddress, city, state, dc, total } = req.body;
+  let { user, product, mobile, billingAddress, country, city, state, paymentMethod, dc, total } = req.body;
   let obj = {
     ...(user && { user }),
     ...(product && { product }),
     ...(mobile && { mobile }),
     ...(billingAddress && { billingAddress }),
+    ...(country && { country }),
     ...(city && { city }),
     ...(state && { state }),
+    ...(paymentMethod && { paymentMethod }),
     ...(dc && { dc }),
     ...(total && { total }),
   };

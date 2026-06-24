@@ -78,6 +78,10 @@ const orderSchema = mongoose.Schema({
   zip: {
     type: String,
   },
+  paymentMethod: {
+    type: String,
+    required: true
+  },
   dc: {
     type: Number,
     required: true

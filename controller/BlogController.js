@@ -64,10 +64,10 @@ const CreateBlog = async (req, res) => {
 
 const EditBlog = async (req, res) => {
   let { id } = req.params;
-  let { title, slug, thumbnail, content, status } = req.body;
+  let { title, date, thumbnail, content, status } = req.body;
   let obj = {
     ...(title && { title }),
-    ...(slug && { slug }),
+    ...(date && { date }),
     ...(thumbnail && { thumbnail }),
     ...(content && { content }),
     ...(status && { status }),

@@ -7,7 +7,6 @@ require("dotenv").config();
 
 const OrderRoute = require("./routes/OrderRoute");
 const BannerRoute = require("./routes/BannerRoute");
-const AboutRoute = require("./routes/AboutRoute");
 const BlogRoute = require("./routes/BlogRoute");
 const SearchRoute = require("./routes/SearchRoute");
 const CategoryRoute = require("./routes/CategoryRoute");
@@ -19,6 +18,8 @@ const SizeRoute = require("./routes/SizeRoute");
 const OfferRoute = require("./routes/OfferRoute");
 const DashboardRoute = require("./routes/DashboardRoute");
 const StripeRoute = require("./routes/Stripe");
+const SubscriptionRoute = require('./routes/SubscriptionRoute');
+const NotificationRoute = require("./routes/NotificationRoute");
 
 const app = express();
 const server = http.createServer(app);
@@ -41,13 +42,14 @@ app.use("/api/users", UserRoute);
 app.use("/api/categories", CategoryRoute);
 app.use("/api/products", ProductRoute);
 app.use("/api/blogs", BlogRoute);
-app.use("/api/abouts", AboutRoute);
 app.use("/api/banners", BannerRoute);
 app.use("/api/orders", OrderRoute);
 app.use("/api/sizes", SizeRoute);
 app.use("/api/offers", OfferRoute);
 app.use("/api/dashboard", DashboardRoute);
 app.use("/api/stripe", StripeRoute);
+app.use('/api/push', SubscriptionRoute);
+app.use('/api/notifications', NotificationRoute);
 app.use("/api", SearchRoute);
 
 mongoose.connect(process.env.MONGO_URI).then(() => {
