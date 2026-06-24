@@ -46,9 +46,13 @@ const orderEmailTemplate = (order) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10, category, product } = req.query;
+    const { search, page = 1, limit = 10, category, product, user } = req.query;
 
     let query = {};
+
+    if (user) {
+      query.user = user;
+    }
 
     if (search) {
       let categoryIds = [];
@@ -81,7 +85,7 @@ const getAllOrders = async (req, res) => {
       }).select("_id");
       userIds = users.map(u => u._id);
 
-      query.$or = [
+      const orConditions = [
         { orderNo: { $regex: search, $options: "i" } },
         { firstName: { $regex: search, $options: "i" } },
         { lastName: { $regex: search, $options: "i" } },
@@ -90,6 +94,7 @@ const getAllOrders = async (req, res) => {
         ...(productIds.length > 0 ? [{ "items.product": { $in: productIds } }] : []),
         ...(userIds.length > 0 ? [{ user: { $in: userIds } }] : [])
       ];
+      query.$or = orConditions;
     }
 
     if (category) {
@@ -154,7 +159,7 @@ const getOrderDetailById = async (req, res) => {
     const order = await OrderModel.findById(id)
       .populate({
         path: "items.product",
-        select: "name price images category"
+        select: "name price image category"
       });
 
     if (!order) {
@@ -183,6 +188,7 @@ const getOrderDetailById = async (req, res) => {
         product: item.product ? {
           id: item.product._id,
           name: item.product.name,
+          image: item.product.image,
           price: item.product.price,
         } : null,
         quantity: item.quantity,

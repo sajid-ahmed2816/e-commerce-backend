@@ -4,9 +4,9 @@ const verifyToken = require("../middleware/Auth");
 
 const router = express.Router();
 
-router.get("", verifyToken(["admin"]), getAllOrders);
+router.get("", verifyToken(["admin", "user"]), getAllOrders);
 
-router.get("/order-detail/:id", verifyToken(["admin"]), getOrderDetailById);
+router.get("/order-detail/:id", verifyToken(["admin", "user"]), getOrderDetailById);
 
 router.post("/create", verifyToken(["admin", "user"]), CreateOrder);
 

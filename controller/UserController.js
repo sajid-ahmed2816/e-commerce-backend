@@ -247,4 +247,57 @@ const ResendOTP = async (req, res) => {
   }
 };
 
-module.exports = { Auth, Login, Signup, Users, VerifyOTP, ResendOTP };
+const ValidatePassword = async (req, res) => {
+  try {
+    const { oldPassword } = req.body;
+    if (!oldPassword) {
+      return res.status(400).send(SendResponse(false, null, "Old password is required"));
+    }
+
+    const user = await UserModel.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).send(SendResponse(false, null, "User not found"));
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    return res.status(200).send(SendResponse(true, { valid: isMatch }, isMatch ? "Password correct" : "Password incorrect"));
+  } catch (err) {
+    console.error("validatePassword error:", err);
+    res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+const ChangePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    if (!oldPassword || !newPassword) {
+      return res.status(400).send(SendResponse(false, null, "Old and new password are required"));
+    }
+
+    const user = await UserModel.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).send(SendResponse(false, null, "User not found"));
+    }
+
+    // Verify old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).send(SendResponse(false, null, "Old password is incorrect"));
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).send(SendResponse(true, null, "Password updated successfully"));
+  } catch (err) {
+    console.error("changePassword error:", err);
+    res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+
+module.exports = { Auth, Login, Signup, Users, VerifyOTP, ResendOTP, ValidatePassword, ChangePassword };
