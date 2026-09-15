@@ -10,6 +10,11 @@ const categorySchema = mongoose.Schema({
     type: String,
     required: true,
   },
+  parent: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Category",
+    default: null
+  },
   image: {
     type: String,
     required: true,

@@ -19,6 +19,10 @@ const AllCategories = async (req, res) => {
       query,
       page: parseInt(page),
       limit: finalLimit,
+      populate: {
+        path: "parent",
+        select: "name"
+      }
     });
     if (result) {
       res.status(200).send(SendResponse(
@@ -36,8 +40,8 @@ const AllCategories = async (req, res) => {
 };
 
 const CreateCategory = async (req, res) => {
-  let { name, type, image, isPopular } = req.body;
-  let obj = { name, type, image, isPopular };
+  let { name, type, image, isPopular, parent } = req.body;
+  let obj = { name, type, image, isPopular, parent: parent || null };
   let reqArr = ["name", "type", "image"];
   let errArr = [];
 
@@ -48,20 +52,20 @@ const CreateCategory = async (req, res) => {
   });
 
   if (errArr.length > 0) {
-    res.status(400).send(SendResponse(false, null, `Required all data`));
+    return res.status(400).send(SendResponse(false, null, `Required all data`));
   }
 
   try {
     const existing = await CategoryModel.findOne({ name });
     if (existing) {
-      return res.status(400).send(SendResponse(false, null, "Category name already exists"));
+      return res.status(409).send(SendResponse(false, null, "Category name already exists"));
     }
     const result = new CategoryModel(obj);
     await result.save();
     if (!result) {
-      res.status(400).send(SendResponse(false, null, "Internal error"));
+      return res.status(400).send(SendResponse(false, null, "Internal error"));
     } else {
-      res.status(200).send(SendResponse(true, result, "Created Successfully"));
+      return res.status(201).send(SendResponse(true, result, "Created Successfully"));
     }
   } catch (error) {
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
@@ -70,34 +74,37 @@ const CreateCategory = async (req, res) => {
 
 const EditCategory = async (req, res) => {
   let { id } = req.params;
-  let { name, type, image, isPopular } = req.body;
+  let { name, type, image, isPopular, parent } = req.body;
   let obj = {};
   if (name) obj.name = name;
   if (type) obj.type = type;
   if (image) obj.image = image;
   obj.isPopular = isPopular;
+  if (parent !== undefined) {
+    obj.parent = parent || null;
+  };
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
-  }
+  };
 
   try {
     if (name) {
       const existing = await CategoryModel.findOne({ name, _id: { $ne: id } });
       if (existing) {
         return res.status(400).send(SendResponse(false, null, "Category name already exists"));
-      }
-    }
+      };
+    };
     const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
     if (!result) {
       res.status(404).send(SendResponse(false, null, "Category not found"));
     } else {
       res.status(200).send(SendResponse(true, result, "Updated Successfully"));
-    }
+    };
   } catch (error) {
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
 
-  }
+  };
 };
 
 const UpdateStatus = async (req, res) => {
