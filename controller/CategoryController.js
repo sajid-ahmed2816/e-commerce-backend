@@ -40,42 +40,53 @@ const AllCategories = async (req, res) => {
 };
 
 const CreateCategory = async (req, res) => {
-  let { name, type, image, isPopular, parent } = req.body;
-  let obj = { name, type, image, isPopular, parent: parent || null };
-  let reqArr = ["name", "type", "image"];
-  let errArr = [];
+  const { name, type, image, isPopular, parent } = req.body;
+  const obj = { name, type, image, isPopular, parent: parent || null };
+  const reqArr = ["name", "image"];
+  const errArr = [];
 
   reqArr.forEach((item) => {
     if (!obj[item]) {
       errArr.push(item);
-    }
+    };
   });
 
   if (errArr.length > 0) {
     return res.status(400).send(SendResponse(false, null, `Required all data`));
-  }
+  };
 
   try {
     const existing = await CategoryModel.findOne({ name });
     if (existing) {
       return res.status(409).send(SendResponse(false, null, "Category name already exists"));
-    }
+    };
+
+    if (parent) {
+      const parentCategory = await CategoryModel.findById(parent);
+
+      if (!parentCategory) {
+        return res.status(400).send(SendResponse(false, null, "Parent category not found"));
+      };
+
+      if (parentCategory.parent) {
+        return res.status(400).send(SendResponse(false, null, "Only parent categories can be selected"));
+      };
+    };
+
     const result = new CategoryModel(obj);
     await result.save();
-    if (!result) {
-      return res.status(400).send(SendResponse(false, null, "Internal error"));
-    } else {
-      return res.status(201).send(SendResponse(true, result, "Created Successfully"));
-    }
+
+    return res.status(201).send(SendResponse(true, result, "Created Successfully"));
   } catch (error) {
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
-  }
+  };
 };
 
 const EditCategory = async (req, res) => {
-  let { id } = req.params;
-  let { name, type, image, isPopular, parent } = req.body;
-  let obj = {};
+  const { id } = req.params;
+  const { name, type, image, isPopular, parent } = req.body;
+  const obj = {};
+
   if (name) obj.name = name;
   if (type) obj.type = type;
   if (image) obj.image = image;
@@ -92,18 +103,36 @@ const EditCategory = async (req, res) => {
     if (name) {
       const existing = await CategoryModel.findOne({ name, _id: { $ne: id } });
       if (existing) {
-        return res.status(400).send(SendResponse(false, null, "Category name already exists"));
+        return res.status(409).send(SendResponse(false, null, "Category name already exists"));
       };
     };
-    const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
-    if (!result) {
-      res.status(404).send(SendResponse(false, null, "Category not found"));
-    } else {
-      res.status(200).send(SendResponse(true, result, "Updated Successfully"));
+
+    if (parent) {
+      if (parent === id) {
+        return res.status(400).send(SendResponse(false, null, "Category cannot be its own parent"));
+      };
+
+      const parentCategory = await CategoryModel.findById(parent);
+
+      if (!parentCategory) {
+        return res.status(400).send(SendResponse(false, null, "Parent category not found"));
+      };
+
+      if (parentCategory.parent) {
+        return res.status(400).send(SendResponse(false, null, "Only parent categories can be selected"));
+      };
     };
+
+    const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
+
+    if (!result) {
+      return res.status(404).send(SendResponse(false, null, "Category not found"));
+    };
+
+    return res.status(200).send(SendResponse(true, result, "Updated Successfully"));
+
   } catch (error) {
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
-
   };
 };
 
@@ -133,16 +162,25 @@ const UpdateStatus = async (req, res) => {
 const DeleteCategory = async (req, res) => {
   const { id } = req.params;
   try {
-    let result = await CategoryModel.findByIdAndDelete(id);
+    const result = await CategoryModel.findById(id);
+
     if (!result) {
-      res.send(SendResponse(false, null, "Category not found")).status(404);
-    } else {
-      await BannerModel.deleteMany({ category: id });
-      res.send(SendResponse(true, null, "Deleted successfully")).status(200);
-    }
+      return res.status(404).send(SendResponse(false, null, "Category not found"));
+    };
+
+    const childCount = await CategoryModel.countDocuments({ parent: id });
+
+    if (childCount > 0) {
+      return res.status(400).send(SendResponse(false, null, "Cannot delete category with child categories"));
+    };
+
+    await CategoryModel.findByIdAndDelete(id);
+    await BannerModel.deleteMany({ category: id });
+
+    return res.status(200).send(SendResponse(true, null, "Deleted successfully"));
   } catch (err) {
-    res.send(SendResponse(false, null, "Internal server error")).status(500);
-  }
+    return res.status(404).send(SendResponse(false, null, "Internal server error"));
+  };
 }
 
 module.exports = { AllCategories, CreateCategory, EditCategory, DeleteCategory, UpdateStatus };
