@@ -1,6 +1,7 @@
 const { SendResponse } = require("../helper/SendResponse");
 const CategoryModel = require("../models/CategoryModel");
 const BannerModel = require("../models/BannerModel");
+const AttributeModel = require("../models/AttributeModel");
 const Paginate = require("../helper/Paginate");
 
 const AllCategories = async (req, res) => {
@@ -19,10 +20,16 @@ const AllCategories = async (req, res) => {
       query,
       page: parseInt(page),
       limit: finalLimit,
-      populate: {
-        path: "parent",
-        select: "name"
-      }
+      populate: [
+        {
+          path: "parent",
+          select: "name"
+        },
+        {
+          path: "attributes",
+          select: "name"
+        },
+      ]
     });
     if (result) {
       res.status(200).send(SendResponse(
@@ -40,8 +47,8 @@ const AllCategories = async (req, res) => {
 };
 
 const CreateCategory = async (req, res) => {
-  const { name, type, image, isPopular, parent } = req.body;
-  const obj = { name, type, image, isPopular, parent: parent || null };
+  const { name, type, image, isPopular, parent, attributes } = req.body;
+  const obj = { name, type, image, isPopular, parent: parent || null, attributes: attributes || [], };
   const reqArr = ["name", "image"];
   const errArr = [];
 
@@ -53,6 +60,10 @@ const CreateCategory = async (req, res) => {
 
   if (errArr.length > 0) {
     return res.status(400).send(SendResponse(false, null, `Required all data`));
+  };
+
+  if (attributes !== undefined && !Array.isArray(attributes)) {
+    return res.status(400).send(SendResponse(false, null, "Attributes must be an array"));
   };
 
   try {
@@ -73,6 +84,20 @@ const CreateCategory = async (req, res) => {
       };
     };
 
+    if (attributes && attributes.length > 0) {
+      const uniqueAttributes = [...new Set(attributes.map(String))];
+
+      if (uniqueAttributes.length !== attributes.length) {
+        return res.status(400).send(SendResponse(false, null, "Duplicate attributes are not allowed"));
+      };
+
+      const attributeCount = await AttributeModel.countDocuments({ _id: { $in: attributes } });
+
+      if (attributeCount !== attributes.length) {
+        return res.status(400).send(SendResponse(false, null, "One or more attributes not found"));
+      };
+    };
+
     const result = new CategoryModel(obj);
     await result.save();
 
@@ -84,16 +109,15 @@ const CreateCategory = async (req, res) => {
 
 const EditCategory = async (req, res) => {
   const { id } = req.params;
-  const { name, type, image, isPopular, parent } = req.body;
+  const { name, type, image, isPopular, parent, attributes } = req.body;
   const obj = {};
 
   if (name) obj.name = name;
   if (type) obj.type = type;
   if (image) obj.image = image;
-  obj.isPopular = isPopular;
-  if (parent !== undefined) {
-    obj.parent = parent || null;
-  };
+  if (isPopular !== undefined) obj.isPopular = isPopular;
+  if (parent !== undefined) obj.parent = parent || null;
+  if (attributes !== undefined) obj.attributes = attributes;
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
@@ -123,6 +147,26 @@ const EditCategory = async (req, res) => {
       };
     };
 
+    if (attributes !== undefined) {
+      if (!Array.isArray(attributes)) {
+        return res.status(400).send(SendResponse(false, null, "Attributes must be an array"));
+      };
+
+      if (attributes.length > 0) {
+        const uniqueAttributes = [...new Set(attributes.map(String))];
+
+        if (uniqueAttributes.length !== attributes.length) {
+          return res.status(400).send(SendResponse(false, null, "Duplicate attributes are not allowed"));
+        };
+
+        const attributeCount = await AttributeModel.countDocuments({ _id: { $in: attributes } });
+
+        if (attributeCount !== attributes.length) {
+          return res.status(400).send(SendResponse(false, null, "One or more attributes not found"));
+        };
+      };
+    };
+
     const result = await CategoryModel.findByIdAndUpdate(id, obj, { new: true });
 
     if (!result) {
@@ -143,7 +187,7 @@ const UpdateStatus = async (req, res) => {
     isActive: isActive
   };
 
-  if (Object.keys(obj).length === 0) {
+  if (isActive === undefined) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
   };
 

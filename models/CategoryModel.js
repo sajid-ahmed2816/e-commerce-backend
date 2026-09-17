@@ -15,6 +15,12 @@ const categorySchema = mongoose.Schema({
     ref: "Category",
     default: null
   },
+  attributes: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Attribute"
+    }
+  ],
   image: {
     type: String,
     required: true,
