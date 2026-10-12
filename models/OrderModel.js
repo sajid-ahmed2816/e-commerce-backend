@@ -27,6 +27,13 @@ const orderSchema = mongoose.Schema({
       ref: "Product",
       required: true,
     },
+    variant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductVariant",
+    },
+    sku: {
+      type: String,
+    },
     quantity: {
       type: Number,
       required: true,

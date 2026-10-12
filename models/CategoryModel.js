@@ -8,7 +8,6 @@ const categorySchema = mongoose.Schema({
   },
   type: {
     type: String,
-    required: true,
   },
   parent: {
     type: mongoose.Schema.Types.ObjectId,
@@ -23,7 +22,7 @@ const categorySchema = mongoose.Schema({
   ],
   image: {
     type: String,
-    required: true,
+    default: null,
   },
   isActive: {
     type: Boolean,

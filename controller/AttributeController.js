@@ -16,7 +16,7 @@ const AllAttributes = async (req, res) => {
       ];
     };
 
-    const finalLimit = limit === "all" ? Number.MAX_SAFE_INTEGER() : parseInt(limit);
+    const finalLimit = limit === "all" ? Number.MAX_SAFE_INTEGER : parseInt(limit);
 
     const result = await Paginate({
       model: AttributeModel,

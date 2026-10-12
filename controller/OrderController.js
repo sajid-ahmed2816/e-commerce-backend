@@ -1,4 +1,5 @@
 const webpush = require('web-push');
+const mongoose = require("mongoose");
 const Paginate = require("../helper/Paginate");
 const { SendResponse } = require("../helper/SendResponse");
 const CategoryModel = require("../models/CategoryModel");
@@ -8,6 +9,7 @@ const userModel = require("../models/UserModel");
 const { SendOCEmail } = require("../helper/SendEmail");
 const SubscriptionModel = require('../models/SubscriptionModel');
 const NotificationModel = require('../models/NotificationModel');
+const ProductVariantModel = require("../models/ProductVariantModel");
 
 webpush.setVapidDetails(
   'mailto:sajid.ahmed2816@gmail.com',
@@ -154,17 +156,29 @@ const getOrderDetailById = async (req, res) => {
 
     if (!id) {
       return res.status(400).send(SendResponse(false, null, "Order ID is required"));
-    }
+    };
 
-    const order = await OrderModel.findById(id)
-      .populate({
-        path: "items.product",
-        select: "name price image category"
-      });
+    const order = await OrderModel.findById(id).populate({
+      path: "items.product",
+      select: "name image category"
+    }).populate({
+      path: "items.variant",
+      select: "sku price attributes image",
+      populate: [
+        {
+          path: "attributes.attribute",
+          select: "name"
+        },
+        {
+          path: "attributes.value",
+          select: "value"
+        }
+      ]
+    });
 
     if (!order) {
       return res.status(404).send(SendResponse(false, null, "Order not found"));
-    }
+    };
 
     const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
@@ -189,8 +203,18 @@ const getOrderDetailById = async (req, res) => {
           id: item.product._id,
           name: item.product.name,
           image: item.product.image,
-          price: item.product.price,
         } : null,
+        variant: item.variant ? {
+          id: item.variant._id,
+          sku: item.sku || item.variant.sku,
+          price: item.price,
+          image: item.variant.image,
+          attributes: item.variant.attributes.map((attribute) => ({
+            attribute: attribute.attribute?.name,
+            value: attribute.value?.value,
+          })),
+        } : null,
+        sku: item.sku,
         quantity: item.quantity,
         priceEach: item.price,
         total: item.price * item.quantity,
@@ -202,21 +226,65 @@ const getOrderDetailById = async (req, res) => {
       zip: order.zip,
     };
 
-    return res.status(200).send(SendResponse(
-      true,
-      { order: orderDetail },
-      "Order details fetched"
-    ));
+    return res.status(200).send(SendResponse(true, { order: orderDetail }, "Order details fetched"));
   } catch (err) {
-    console.log("🚀 ~ getOrderDetailById ~ err:", err);
     res.status(500).send(SendResponse(false, null, "Internal server error"));
-  }
+  };
 };
 
 const CreateOrder = async (req, res) => {
-  let { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, paymentMethod, dc, total } = req.body;
-  let obj = { user, firstName, lastName, email, items, mobile, billingAddress, country, city, state, paymentMethod, dc, total };
-  let reqArr = ["user", "firstName", "lastName", "email", "items", "mobile", "billingAddress", "country", "city", "state", "paymentMethod", "dc", "total"];
+  let {
+    user,
+    firstName,
+    lastName,
+    email,
+    items,
+    mobile,
+    billingAddress,
+    shippingAddress,
+    country,
+    city,
+    state,
+    zip,
+    paymentMethod,
+    dc,
+    total
+  } = req.body;
+
+  let reqArr = [
+    "user",
+    "firstName",
+    "lastName",
+    "email",
+    "items",
+    "mobile",
+    "billingAddress",
+    "country",
+    "city",
+    "state",
+    "paymentMethod",
+    "dc",
+    "total"
+  ];
+
+  let obj = {
+    user,
+    firstName,
+    lastName,
+    email,
+    items,
+    mobile,
+    billingAddress,
+    shippingAddress,
+    country,
+    city,
+    state,
+    zip,
+    paymentMethod,
+    dc,
+    total
+  };
+
   let errArr = [];
 
   reqArr.forEach((item) => {
@@ -226,60 +294,182 @@ const CreateOrder = async (req, res) => {
   });
 
   if (errArr.length > 0) {
-    return res.status(400).send(SendResponse(false, null, `Required all data`));
+    return res.status(400).send(SendResponse(false, null, "Required all data"));
   };
 
   if (!Array.isArray(items) || items.length === 0) {
-    return res
-      .status(400)
-      .send(SendResponse(false, null, "Order items required"));
-  }
+    return res.status(400).send(SendResponse(false, null, "Order items required"));
+  };
+
+  const session = await mongoose.startSession();
 
   try {
-    const result = new OrderModel(obj);
-    await result.save();
-    if (!result) {
-      res.status(400).send(SendResponse(false, null, "Internal error"));
-    } else {
-      //populate order
-      const populatedOrder = await OrderModel.findById(result._id).populate("items.product");
-      // create notification
-      const notification = new NotificationModel({
-        orderId: result._id,
-        orderNo: result.orderNo,
-        message: `New order #${result.orderNo} placed by ${firstName} ${lastName}`,
+    session.startTransaction();
+
+    const orderItems = [];
+
+    for (const item of items) {
+      const {
+        product,
+        variant,
+        quantity
+      } = item;
+
+      // Product required
+      if (!product) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, "Product is required"));
+      };
+
+      // Variant required
+      if (!variant) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, "Variant is required for every order item"));
+      };
+
+      // Quantity validation
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, "Quantity must be at least 1"));
+      };
+
+      // Check product
+      const productData = await ProductModel.findById(product).session(session);
+
+      if (!productData) {
+        await session.abortTransaction();
+        return res.status(404).send(SendResponse(false, null, `Product not found: ${product}`));
+      };
+
+      // Check variant
+      const variantData = await ProductVariantModel.findById(variant).session(session);
+
+      if (!variantData) {
+        await session.abortTransaction();
+        return res.status(404).send(SendResponse(false, null, `Variant not found: ${variant}`));
+      };
+
+      // Variant must belong to the same product
+      if (variantData.product.toString() !== productData._id.toString()) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, "Variant does not belong to the selected product"));
+      };
+
+      // Variant must be active
+      if (!variantData.isActive) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, `Variant ${variantData.sku} is not available`));
+      };
+
+      // Order item snapshot
+      orderItems.push({
+        product: productData._id,
+        variant: variantData._id,
+        sku: variantData.sku,
+        quantity,
+        price: variantData.price
       });
-      await notification.save();
-      const io = req.app.get("io");
-      io.emit('new-notification', notification);
-      io.emit("new-order", {
-        message: "New order received"
-      });
-      const subscriptions = await SubscriptionModel.find();
-      const payload = JSON.stringify({
-        title: 'New Order',
-        body: `Order #${result.orderNo} has been placed!`,
-        icon: '/logo192.png',
-      });
-      const notifications = subscriptions.map(sub =>
-        webpush.sendNotification(sub, payload).catch(err => {
-          // If subscription is invalid (expired), remove it
-          if (err.statusCode === 410) {
-            SubscriptionModel.deleteOne({ endpoint: sub.endpoint }).exec();
+    }
+
+    // Calculate subtotal from DB prices
+    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const deliveryCharge = Number(dc) || 0;
+    const calculatedTotal = subtotal + deliveryCharge;
+
+    // Update total from trusted DB values
+    obj.items = orderItems;
+    obj.dc = deliveryCharge;
+    obj.total = calculatedTotal;
+
+    // Deduct stock
+    for (const item of orderItems) {
+      const updatedVariant = await ProductVariantModel.findOneAndUpdate(
+        {
+          _id: item.variant,
+          isActive: true,
+          stock: { $gte: item.quantity }
+        },
+        {
+          $inc: {
+            stock: -item.quantity
           }
-        })
+        },
+        { new: true, session }
       );
-      await Promise.allSettled(notifications);
-      await SendOCEmail({
-        to: email,
-        subject: "Order Confirmation - Fashion Store",
-        html: orderEmailTemplate(populatedOrder),
-      });
-      res.status(200).send(SendResponse(true, result, "Order Placed Successfully"));
+
+      if (!updatedVariant) {
+        await session.abortTransaction();
+        return res.status(400).send(SendResponse(false, null, `Insufficient stock for ${item.sku}`));
+      }
     };
+
+    // Create order
+    const result = new OrderModel(obj);
+
+    await result.save({ session });
+
+    if (!result) {
+      await session.abortTransaction();
+      return res.status(400).send(SendResponse(false, null, "Internal error"));
+    };
+
+    await session.commitTransaction();
+
+    // Populate order
+    const populatedOrder = await OrderModel.findById(result._id).populate("items.product").populate("items.variant");
+
+    // Create notification
+    const notification = new NotificationModel({
+      orderId: result._id,
+      orderNo: result.orderNo,
+      message: `New order #${result.orderNo} placed by ${firstName} ${lastName}`,
+    });
+
+    await notification.save();
+
+    const io = req.app.get("io");
+
+    io.emit("new-notification", notification);
+
+    io.emit("new-order", {
+      message: "New order received"
+    });
+
+    // Push notifications
+    const subscriptions = await SubscriptionModel.find();
+
+    const payload = JSON.stringify({
+      title: "New Order",
+      body: `Order #${result.orderNo} has been placed!`,
+      icon: "/logo192.png",
+    });
+
+    const notifications = subscriptions.map((sub) => webpush.sendNotification(sub, payload)
+      .catch((err) => {
+        // Remove expired subscription
+        if (err.statusCode === 410) {
+          SubscriptionModel.deleteOne({
+            endpoint: sub.endpoint
+          }).exec();
+        }
+      })
+    );
+
+    await Promise.allSettled(notifications);
+
+    // Order confirmation email
+    await SendOCEmail({
+      to: email,
+      subject: "Order Confirmation - Fashion Store",
+      html: orderEmailTemplate(populatedOrder),
+    });
+
+    return res.status(200).send(SendResponse(true, result, "Order Placed Successfully"));
   } catch (error) {
-    console.log(error);
-    return res.status(500).send(SendResponse(false, null, "Internal Server Error"))
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+    return res.status(500).send(SendResponse(false, null, "Internal Server Error"));
   };
 };
 

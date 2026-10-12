@@ -10,21 +10,17 @@ const productSchema = mongoose.Schema({
     ref: "Category",
     required: true,
   },
-  size: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Size",
-  }],
-  price: {
-    type: Number,
-    required: true,
-  },
-  image: {
-    type: String,
-    required: true,
-  },
   description: {
     type: String,
     required: true,
+  },
+  thumbnail: {
+    type: String,
+    default: null,
+  },
+  thumbnailPublicId: {
+    type: String,
+    default: null,
   },
   isFeatured: {
     type: Boolean,

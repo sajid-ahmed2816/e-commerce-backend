@@ -5,7 +5,7 @@ const Paginate = require("../helper/Paginate");
 
 const AllAttributeValues = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10 } = req.query;
+    const { search, page = 1, limit = 10, attribute } = req.query;
 
     let query = {};
 
@@ -14,6 +14,10 @@ const AllAttributeValues = async (req, res) => {
         { value: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } }
       ];
+    };
+
+    if (attribute) {
+      query.attribute = attribute;
     };
 
     const finalLimit = limit === "all" ? Number.MAX_SAFE_INTEGER : parseInt(limit);

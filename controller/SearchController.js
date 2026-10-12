@@ -14,7 +14,7 @@ const Search = async (req, res) => {
 
     const [blogs, products, categories] = await Promise.all([
       BlogModel.find(blogQuery).select("title date content thumbnail status createdAt").lean(),
-      ProductModel.find(productQuery).select("name category price image description isFeatured isActive createdAt").populate("category").populate("size").lean(),
+      ProductModel.find(productQuery).select("name category description isFeatured isActive createdAt").populate("category").lean(),
       CategoryModel.find(categoryQuery).select("name type image isActive isPopular createdAt").lean()
     ]);
 

@@ -4,14 +4,31 @@ const CategoryModel = require("../models/CategoryModel");
 const Paginate = require("../helper/Paginate");
 const multer = require("multer");
 const XLSX = require("xlsx");
-const SizeModel = require("../models/SizeModel");
+const ProductVariantModel = require("../models/ProductVariantModel");
+const cloudinary = require("../config/CloudinaryConfig");
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
-const upload = multer({ storage: multer.memoryStorage() });
+const imageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "uploads",
+    allowedFormats: ["jpg", "png"],
+  }
+});
+
+const thumbnailUpload = multer({
+  storage: imageStorage
+});
+
+const excelUpload = multer({
+  storage: multer.memoryStorage()
+});
 
 const AllProducts = async (req, res) => {
   try {
     const { search, page = 1, limit = 10, category, minPrice, maxPrice } = req.query;
     let query = {};
+
     if (search) {
       let categoryIds = [];
       if (!category) {
@@ -25,39 +42,81 @@ const AllProducts = async (req, res) => {
         ...(categoryIds.length > 0 ? [{ category: { $in: categoryIds } }] : [])
       ];
     };
+
     if (category) {
       query.category = category;
     };
+
     if (minPrice !== undefined || maxPrice !== undefined) {
-      query.price = {};
+      const variantPriceQuery = {
+        isActive: true
+      };
+
       if (minPrice && !isNaN(parseFloat(minPrice))) {
-        query.price.$gte = parseFloat(minPrice);
-      }
+        variantPriceQuery.price = {
+          $gte: parseFloat(minPrice)
+        };
+      };
+
       if (maxPrice && !isNaN(parseFloat(maxPrice))) {
-        query.price.$lte = parseFloat(maxPrice);
-      }
-      // Agar dono hi nahi diye (edge case) toh price filter hata do
-      if (Object.keys(query.price).length === 0) {
-        delete query.price;
-      }
+        variantPriceQuery.price = {
+          ...(variantPriceQuery.price || {}),
+          $lte: parseFloat(maxPrice)
+        };
+      };
+
+      const variantProductIds = await ProductVariantModel.find(variantPriceQuery).distinct("product");
+
+      query._id = {
+        $in: variantProductIds
+      };
     };
+
     if (req.query.isFeatured !== undefined) {
       const isFeatured = req.query.isFeatured === 'true' || req.query.isFeatured === '1';
       query.isFeatured = isFeatured;
     };
+
     const finalLimit = limit === 'all' ? Number.MAX_SAFE_INTEGER : parseInt(limit);
     const result = await Paginate({
       model: ProductModel,
       query,
       page: parseInt(page),
       limit: finalLimit,
-      populate: ["category", "size"],
+      populate: ["category"],
     });
+
+    const productIds = result.data.map((product) => product._id);
+
+    const variants = await ProductVariantModel.find({
+      product: { $in: productIds },
+      isActive: true,
+    }).select("product price").sort({ price: 1 }).lean();
+
+    const variantPriceMap = new Map();
+
+    variants.forEach((variant) => {
+      const productId = variant.product.toString();
+
+      if (!variantPriceMap.has(productId)) {
+        variantPriceMap.set(productId, variant.price);
+      }
+    });
+
+    const products = result.data.map((product) => {
+      const productObj = product.toObject ? product.toObject() : product;
+
+      return {
+        ...productObj,
+        minVariantPrice: variantPriceMap.get(product._id.toString()) ?? null,
+      };
+    });
+
     if (result) {
       return res.status(200).send(SendResponse(
         true,
         {
-          products: result.data,
+          products,
           pagination: result.pagination,
         },
         "All products"
@@ -68,61 +127,117 @@ const AllProducts = async (req, res) => {
   };
 };
 
-const CreateProduct = async (req, res) => {
-  let { name, category, size, description, image, price, } = req.body;
-  let obj = { name, category, size, description, image, price };
-  let reqArr = ["name", "category", "size", "description", "image", "price"];
-  let errArr = [];
+const GetProductById = async (req, res) => {
+  const { id } = req.params;
 
-  reqArr.forEach((item) => {
-    if (!obj[item]) {
-      errArr.push(item);
+  try {
+    const product = await ProductModel.findById(id).populate("category");
+
+    if (!product) {
+      return res.status(404).send(SendResponse(false, null, "Product not found"));
     }
-  });
 
-  if (errArr.length > 0) {
-    return res.status(400).send(SendResponse(false, null, "Required all data"));
+    const variants = await ProductVariantModel.find({
+      product: product._id,
+      isActive: true
+    }).populate("attributes.attribute", "name").populate("attributes.value", "value");
+
+    return res.status(200).send(
+      SendResponse(
+        true,
+        {
+          product,
+          variants
+        },
+        "Product fetched successfully"
+      )
+    );
+
+  } catch (error) {
+    return res.status(500).send(SendResponse(false, null, "Internal server error"));
+  }
+};
+
+const CreateProduct = async (req, res) => {
+  let { name, category, description } = req.body;
+
+  if (!req.file) {
+    return res.status(400).send(SendResponse(false, null, "Thumbnail is required"));
+  };
+
+  const requiredFields = { name, category, description };
+  const missingFields = Object.keys(requiredFields).filter((field) => !requiredFields[field]);
+
+  if (missingFields.length > 0) {
+    return res.status(400).send(SendResponse(false, null, `Required fields: ${missingFields.join(", ")}`));
   };
 
   try {
-    const result = new ProductModel(obj);
-    await result.save();
-    if (!result) {
-      return res.status(400).send(SendResponse(false, null, "Internal error"));
-    } else {
-      return res.status(200).send(SendResponse(true, result, "Created Successfully"));
+    const obj = {
+      name,
+      category,
+      description,
+      thumbnail: req.file.path,
+      thumbnailPublicId: req.file.filename,
     };
+
+    const result = new ProductModel(obj);
+
+    await result.save();
+
+    return res.status(200).send(SendResponse(true, result, "Product Created Successfully"));
   } catch (error) {
-    console.log(error);
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
   };
 };
 
 const UpdateProduct = async (req, res) => {
-  let { id } = req.params;
-  let { name, category, size, description, image, price, isFeatured } = req.body;
-  let obj = {};
+  const { id } = req.params;
+  const { name, category, description, isFeatured } = req.body;
+
+  const obj = {};
+
   if (name) obj.name = name;
   if (category) obj.category = category;
-  if (size) obj.size = size;
   if (description) obj.description = description;
-  if (image) obj.image = image;
-  if (price) obj.price = price;
-  obj.isFeatured = isFeatured;
+  if (isFeatured !== undefined) obj.isFeatured = isFeatured;
+  if (req.file) {
+    obj.thumbnail = req.file.path;
+    obj.thumbnailPublicId = req.file.filename;
+  };
 
   if (Object.keys(obj).length === 0) {
     return res.status(400).send(SendResponse(false, null, "Required data to update"));
   };
 
   try {
-    const result = await ProductModel.findByIdAndUpdate(id, obj, { new: true });
-    if (!result) {
+    const existingProduct = await ProductModel.findById(id);
+
+    if (!existingProduct) {
       return res.status(404).send(SendResponse(false, null, "Product not found"));
-    } else {
-      return res.status(200).send(SendResponse(true, result, "Updated Successfully"));
     };
+
+    const oldThumbnailPublicId = existingProduct.thumbnailPublicId;
+
+    const result = await ProductModel.findByIdAndUpdate(id, obj, { new: true, runValidators: true });
+
+    if (req.file && oldThumbnailPublicId) {
+      try {
+        await cloudinary.uploader.destroy(oldThumbnailPublicId);
+      } catch (deleteError) {
+        console.log("Old thumbnail delete failed:", deleteError);
+      }
+    };
+
+    return res.status(200).send(SendResponse(true, result, "Updated Successfully"));
   } catch (error) {
-    console.log(error);
+    if (req.file?.filename) {
+      try {
+        await cloudinary.uploader.destroy(req.file.filename);
+      } catch (cleanupError) {
+        console.log("New thumbnail cleanup failed:", cleanupError);
+      }
+    };
     return res.status(500).send(SendResponse(false, null, "Internal server error"));
   };
 };
@@ -193,8 +308,7 @@ const BulkUploadProducts = async (req, res) => {
         }
       });
 
-      // Required fields – "size" ko hata diya (optional now)
-      const requiredFields = ["name", "category", "description", "price"];
+      const requiredFields = ["name", "category", "description"];
       const missing = requiredFields.filter(f => !row[f]);
       if (missing.length) {
         errors.push({ row: rowNumber, error: `Missing required fields: ${missing.join(", ")}` });
@@ -202,52 +316,28 @@ const BulkUploadProducts = async (req, res) => {
       }
 
       // Category resolution (mandatory)
-      const category = await CategoryModel.findOne({
+      let category = await CategoryModel.findOne({
         name: { $regex: `^${row.category}$`, $options: "i" }
       });
+
       if (!category) {
-        errors.push({ row: rowNumber, error: `Category "${row.category}" not found` });
-        continue;
-      }
-
-      // 🔹 Size resolution – optional now
-      let sizeIds = [];
-      if (row.size && row.size !== "") {
-        let sizeDoc = await SizeModel.findOne({
-          size: { $regex: `^${row.size}$`, $options: "i" }
+        category = await CategoryModel.create({
+          name: row.category,
+          parent: null,
+          image: null,
+          isActive: false,
+          isPopular: false,
         });
-        if (!sizeDoc) {
-          // Auto-create new size
-          sizeDoc = await SizeModel.create({ size: row.size });
-          console.log(`Auto-created new size: "${row.size}" with ID ${sizeDoc._id}`);
-        }
-        sizeIds = [sizeDoc._id];
       }
-      // else sizeIds remains [] – product will have no size
-
-      // Price validation
-      const price = parseFloat(row.price);
-      if (isNaN(price)) {
-        errors.push({ row: rowNumber, error: `Invalid price: "${row.price}"` });
-        continue;
-      }
-
-      // Image handling – default placeholder if missing
-      const imageUrl = row.image && row.image.trim() !== ""
-        ? row.image
-        : "https://placehold.co/600x400?text=No+Image";
 
       // Prepare product object
       productsToInsert.push({
         name: row.name,
         category: category._id,
-        size: sizeIds,           // empty array if no size
         description: row.description,
-        image: imageUrl,
-        price: price,
         isActive: row.isActive ? row.isActive.toString().toLowerCase() === "true" : true,
       });
-    }
+    };
 
     console.log(`Total products to insert: ${productsToInsert.length}`);
 
@@ -292,10 +382,12 @@ const BulkUploadProducts = async (req, res) => {
 
 module.exports = {
   AllProducts,
+  GetProductById,
   CreateProduct,
   UpdateProduct,
   DeleteProduct,
   UpdateStatus,
   BulkUploadProducts,
-  upload
+  thumbnailUpload,
+  excelUpload
 };
