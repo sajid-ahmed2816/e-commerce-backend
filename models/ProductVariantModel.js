@@ -7,13 +7,6 @@ const productVariantSchema = mongoose.Schema({
     required: true
   },
 
-  sku: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-
   attributes: [
     {
       attribute: {
@@ -33,6 +26,13 @@ const productVariantSchema = mongoose.Schema({
   combinationKey: {
     type: String,
     required: true
+  },
+
+  sku: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
   },
 
   price: {

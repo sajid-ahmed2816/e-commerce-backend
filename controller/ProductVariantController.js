@@ -7,6 +7,7 @@ const OrderModel = require("../models/OrderModel");
 const cloudinary = require("../config/CloudinaryConfig");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
+const { populate } = require("dotenv");
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -232,7 +233,11 @@ const GetProductVariant = async (req, res) => {
   try {
     const variant = await ProductVariantModel
       .findById(id)
-      .populate("product", "name")
+      .populate({
+        path: "product",
+        select: "name category",
+        populate: { path: "category" }
+      })
       .populate("attributes.attribute", "name")
       .populate("attributes.value", "value");
 
