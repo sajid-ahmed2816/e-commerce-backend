@@ -16,6 +16,12 @@ const initialize = () => {
     serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
   }
 
+  // Vercel environment variables are sometimes pasted with the private key's
+  // newline escapes preserved. Normalize both escaped and actual newlines.
+  if (typeof serviceAccount.private_key === "string") {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });

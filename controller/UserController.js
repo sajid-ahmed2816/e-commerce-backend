@@ -88,6 +88,7 @@ const Signup = async (req, res) => {
 };
 
 const Auth = async (req, res) => {
+  let decodedToken;
   try {
     const { token } = req.body; // Firebase ID token from frontend
 
@@ -95,8 +96,18 @@ const Auth = async (req, res) => {
       return res.status(400).send(SendResponse(false, null, "Token is required"));
     }
 
-    // Verify Firebase token
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    // Verify the Firebase ID token separately so infrastructure/database errors
+    // are not incorrectly reported as authentication failures.
+    try {
+      decodedToken = await admin.auth().verifyIdToken(token);
+    } catch (error) {
+      console.error("Google token verification failed", {
+        code: error?.code,
+        message: error?.message,
+      });
+      return res.status(401).send(SendResponse(false, null, "Google token verification failed"));
+    }
+
     const { name, email, picture } = decodedToken;
 
     let firstName = null;
@@ -136,8 +147,11 @@ const Auth = async (req, res) => {
 
     res.status(200).send(SendResponse(true, { user, token: ourToken }, "User authenticated successfully"));
   } catch (err) {
-    console.error(err);
-    res.status(401).send(SendResponse(false, null, "Unauthorized"));
+    console.error("Google login failed after token verification", {
+      code: err?.code,
+      message: err?.message,
+    });
+    res.status(500).send(SendResponse(false, null, "Google login could not be completed"));
   }
 };
 
