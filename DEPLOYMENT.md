@@ -16,6 +16,6 @@ Set these Environment Variables in the Vercel project (Production and Preview as
 
 The dashboard build must receive `REACT_APP_API_URL=https://<backend-project>.vercel.app/api` in its Vercel project settings. The existing Netlify storefront must receive the same variable in its site build environment, then be redeployed. React environment variables are embedded at build time.
 
-Keep the backend project's Vercel Cron enabled for `/api/cron`. It runs offer processing hourly. The backend also attaches Socket.IO to its local HTTP server, but Vercel Functions do not provide persistent Socket.IO connections; the dashboard's live order and notification events therefore need a separate persistent realtime host or a polling implementation.
+Keep the backend project's Vercel Cron enabled for `/api/cron`. On the Hobby plan it runs once daily at midnight UTC (`0 0 * * *`), so offer processing is only refreshed daily. The backend also attaches Socket.IO to its local HTTP server, but Vercel Functions do not provide persistent Socket.IO connections; the dashboard's live order and notification events therefore need a separate persistent realtime host or a polling implementation.
 
 The dashboard and storefront are separate frontend builds. Do not add the backend's private credentials to either frontend project. `FIREBASE_SERVICE_ACCOUNT_JSON` replaces the ignored local `firebase-service-account.json` file for hosted deployments.

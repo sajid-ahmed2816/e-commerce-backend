@@ -11,11 +11,14 @@ const SubscriptionModel = require('../models/SubscriptionModel');
 const NotificationModel = require('../models/NotificationModel');
 const ProductVariantModel = require("../models/ProductVariantModel");
 
-webpush.setVapidDetails(
-  'mailto:sajid.ahmed2816@gmail.com',
-  process.env.WEB_PUSH_PUBLIC_KEY,
-  process.env.WEB_PUSH_PRIVATE_KEY
-);
+const pushConfigured = Boolean(process.env.WEB_PUSH_PUBLIC_KEY && process.env.WEB_PUSH_PRIVATE_KEY);
+if (pushConfigured) {
+  webpush.setVapidDetails(
+    'mailto:sajid.ahmed2816@gmail.com',
+    process.env.WEB_PUSH_PUBLIC_KEY,
+    process.env.WEB_PUSH_PRIVATE_KEY
+  );
+}
 
 const orderEmailTemplate = (order) => {
   return `
@@ -444,7 +447,7 @@ const CreateOrder = async (req, res) => {
       icon: "/logo192.png",
     });
 
-    const notifications = subscriptions.map((sub) => webpush.sendNotification(sub, payload)
+    const notifications = (pushConfigured ? subscriptions : []).map((sub) => webpush.sendNotification(sub, payload)
       .catch((err) => {
         // Remove expired subscription
         if (err.statusCode === 410) {

@@ -3,12 +3,14 @@ const Stripe = require("stripe");
 const { SendResponse } = require("../helper/SendResponse");
 const verifyToken = require("../middleware/Auth");
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-
 const router = express.Router();
 
 router.post("/create-payment-intent", verifyToken(["admin", "user"]), async (req, res) => {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return res.status(503).json({ error: "Payments are not configured on this server" });
+    }
+    const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     const { amount } = req.body;
     const amountInCents = Math.round(parseFloat(amount) * 100);
 
