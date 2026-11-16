@@ -98,8 +98,19 @@ const Auth = async (req, res) => {
 
     // Verify the Firebase ID token separately so infrastructure/database errors
     // are not incorrectly reported as authentication failures.
+    let firebaseAuth;
     try {
-      decodedToken = await admin.auth().verifyIdToken(token);
+      firebaseAuth = admin.auth();
+    } catch (error) {
+      console.error("Firebase Admin initialization failed", {
+        code: error?.code,
+        message: error?.message,
+      });
+      return res.status(500).send(SendResponse(false, null, "Google login service is not configured"));
+    }
+
+    try {
+      decodedToken = await firebaseAuth.verifyIdToken(token);
     } catch (error) {
       console.error("Google token verification failed", {
         code: error?.code,
