@@ -5,7 +5,7 @@ const AttributeModel = require("../models/AttributeModel");
 const AttributeValueModel = require("../models/AttributeValueModel");
 const OrderModel = require("../models/OrderModel");
 const cloudinary = require("../config/CloudinaryConfig");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const { CloudinaryStorage } = require("../helper/CloudinaryStorage");
 const multer = require("multer");
 const { populate } = require("dotenv");
 

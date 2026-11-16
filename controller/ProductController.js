@@ -6,7 +6,7 @@ const multer = require("multer");
 const XLSX = require("xlsx");
 const ProductVariantModel = require("../models/ProductVariantModel");
 const cloudinary = require("../config/CloudinaryConfig");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const { CloudinaryStorage } = require("../helper/CloudinaryStorage");
 
 const imageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,

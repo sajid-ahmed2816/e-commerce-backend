@@ -1,5 +1,4 @@
 process.env.TZ = 'Asia/Karachi';
-const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
@@ -38,7 +37,13 @@ io.on("connection", () => { });
 
 app.set("io", io);
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean);
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Origin is not allowed by CORS"));
+  },
+}));
 app.use(express.json());
 app.use("/api", ImageRoute);
 app.use("/api/auth", AuthRoute);
@@ -63,11 +68,13 @@ app.post('/api/cron/run', (req, res) => {
   res.send('Cron executed');
 });
 
-mongoose.connect(process.env.MONGO_URI).then(() => {
-  server.listen(process.env.PORT, () => {
-    console.log(`Database connected successfull and Server running on ${process.env.PORT}`);
-  });
-  require('./utils/cron');
-}).catch((err) => {
-  console.log("err=>", err);
-});
+if (!process.env.VERCEL && require.main === module) {
+  require("mongoose").connect(process.env.MONGO_URI).then(() => {
+    server.listen(process.env.PORT || 3030, () => {
+      console.log(`Database connected successfully and server running on ${process.env.PORT || 3030}`);
+    });
+    require('./utils/cron');
+  }).catch((err) => console.error("Database connection failed", err));
+}
+
+module.exports = app;

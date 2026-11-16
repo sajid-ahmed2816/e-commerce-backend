@@ -71,7 +71,7 @@ const processOffers = async () => {
   }
 };
 
-// Schedule: run every hour
-cron.schedule('0 * * * *', processOffers);
+// Vercel Cron invokes api/cron.js; local deployments use this in-process schedule.
+if (!process.env.VERCEL) cron.schedule('0 * * * *', processOffers);
 
 module.exports = processOffers;
