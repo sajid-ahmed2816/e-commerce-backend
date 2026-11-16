@@ -1,6 +1,6 @@
 # Deployment setup
 
-Deploy this folder as its own Vercel project with this folder as the project root. Vercel serves the Express API from `api/[...path].js`; the `/api/*` endpoint paths stay unchanged.
+Deploy this folder as its own Vercel project with this folder as the project root. Vercel detects the Express app exported from `server.js` and routes API requests through it, including nested paths such as `/api/auth/admin/login` and `/api/products/:id`.
 
 Set these Environment Variables in the Vercel project (Production and Preview as needed):
 
@@ -12,7 +12,7 @@ Set these Environment Variables in the Vercel project (Production and Preview as
 - `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`
 - `FIREBASE_SERVICE_ACCOUNT_JSON` (the complete service-account JSON on one line)
 - `CRON_SECRET` (a long random value; Vercel uses it to authorize the scheduled offer job)
-- `CORS_ORIGINS` (comma-separated exact deployed frontend origins, including `https://e-commerce-react-js-web.netlify.app` and the dashboard's Vercel URL)
+- `CORS_ORIGINS` (comma-separated exact deployed frontend origins; the Netlify storefront origin is allowed by default, and `e-commerce-dashboard-*.vercel.app` dashboard deployments are accepted)
 
 The dashboard build must receive `REACT_APP_API_URL=https://<backend-project>.vercel.app/api` in its Vercel project settings. The existing Netlify storefront must receive the same variable in its site build environment, then be redeployed. React environment variables are embedded at build time.
 

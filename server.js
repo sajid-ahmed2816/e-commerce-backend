@@ -2,6 +2,7 @@ process.env.TZ = 'Asia/Karachi';
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const mongoose = require("mongoose");
 const { Server } = require("socket.io");
 require("dotenv").config();
 
@@ -37,13 +38,40 @@ io.on("connection", () => { });
 
 app.set("io", io);
 
-const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = new Set([
+  "https://e-commerce-react-js-web.netlify.app",
+  ...(process.env.CORS_ORIGINS || "").split(",").map((origin) => origin.trim()).filter(Boolean),
+]);
+
+const isAllowedOrigin = (origin) =>
+  !origin ||
+  allowedOrigins.has(origin) ||
+  /^https:\/\/e-commerce-dashboard(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin);
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
+    if (isAllowedOrigin(origin)) return callback(null, true);
     return callback(new Error("Origin is not allowed by CORS"));
   },
 }));
+
+let connectionPromise;
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState === 1) return next();
+
+  try {
+    connectionPromise ||= mongoose.connect(process.env.MONGO_URI).catch((error) => {
+      connectionPromise = undefined;
+      throw error;
+    });
+    await connectionPromise;
+    return next();
+  } catch (error) {
+    console.error("MongoDB connection failed", error);
+    return res.status(503).json({ success: false, message: "Database unavailable" });
+  }
+});
+
 app.use(express.json());
 app.use("/api", ImageRoute);
 app.use("/api/auth", AuthRoute);
@@ -63,13 +91,22 @@ app.use('/api/push', SubscriptionRoute);
 app.use('/api/notifications', NotificationRoute);
 app.use("/api", SearchRoute);
 
-app.post('/api/cron/run', (req, res) => {
-  processOffers();
-  res.send('Cron executed');
+app.get("/api/cron", async (req, res) => {
+  if (!process.env.CRON_SECRET || req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  try {
+    await processOffers();
+    return res.status(200).json({ success: true, message: "Offers processed" });
+  } catch (error) {
+    console.error("Vercel cron failed", error);
+    return res.status(500).json({ success: false, message: "Offer processing failed" });
+  }
 });
 
 if (!process.env.VERCEL && require.main === module) {
-  require("mongoose").connect(process.env.MONGO_URI).then(() => {
+  mongoose.connect(process.env.MONGO_URI).then(() => {
     server.listen(process.env.PORT || 3030, () => {
       console.log(`Database connected successfully and server running on ${process.env.PORT || 3030}`);
     });
